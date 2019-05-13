@@ -16,7 +16,7 @@ import numpy as np
 # apply delaunay triangulation-------------many small triangles
 # figure the
 
-root = 'D:/Academic/MPS/Internship_RSMAS/Data/cathes/GraphicMethod/'
+root = 'D:/Academic/MPS/Internship/Data/cathes/GraphicMethod/'
 
 
 def FirstLayer(name, dir):
@@ -65,6 +65,7 @@ def OtherLayer(B_xsize, B_ysize, dir):
         name = 'Layer' + str(indice + 1) + '-' + d.series[indice]
         del temp
         Sigma_N = gm.NewSigmaNaught5(GCP, SigmaNaught, B_ysize, B_xsize)
+        np.save(root+'/Temp/'+name+'.npy', Sigma_N)
         del SigmaNaught, GCP
         [sub_image, pt_list] = cod.N_sub(3, Sigma_N)
         jo.NMatrix_save(sub_image, name, root)

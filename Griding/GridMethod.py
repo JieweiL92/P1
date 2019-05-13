@@ -157,8 +157,8 @@ def NewSigmaNaught5(GCP, Sigma_layer, rows_grid, cols_grid):
         C = [tri_list[t][0][1] if t >= 0 else -1 for t in Tri_num]
         R_unit = [y_unit[t] if t >= 0 else -1 for t in Tri_num]
         C_unit = [x_unit[t] if t >= 0 else -1 for t in Tri_num]
-        X_new = [C_unit[t] + xv[C[t]] if TF[t] else np.nan for t in range(len(TF))]
-        Y_new = [R_unit[t] + yv[R[t]] if TF[t] else np.nan for t in range(len(TF))]
+        X_new = [Coef_U[t]*C_unit[t] + xv[C[t]] if TF[t] else np.nan for t in range(len(TF))]
+        Y_new = [Coef_V[t]*R_unit[t] + yv[R[t]] if TF[t] else np.nan for t in range(len(TF))]
         return X_new, Y_new, TF
 
     def InterpBary(xytf):
