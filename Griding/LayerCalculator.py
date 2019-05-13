@@ -1,5 +1,17 @@
-import math
+import math, cv2
 import numpy as np
+
+def Display(dataset, n = 0):
+    data = dataset[:,:,n]
+    coef = 255/(data.max()-data.min())
+    data = data-data.min()
+    img = np.around(data/coef).astype(np.uint8)
+    rows, cols = data.shape
+    cv2.resizeWindow('Image1', cols, rows)
+    cv2.imshow('Image1', img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    return None
 
 
 def Resize_SigmaNaught(dat, n):

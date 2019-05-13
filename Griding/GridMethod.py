@@ -140,11 +140,23 @@ def NewSigmaNaught5(GCP, Sigma_layer, rows_grid, cols_grid):
     # Sigma_layer: NRCS of This SAR image
     # GCP: GCP of this SAR image
     # rows_grid, cols_grid: number of rc of total grid
+    def FilterTri(lonMin, lonMax, latMin, latMax):
+        ind = [1 if (lonMin <= P_1[t][0] <= lonMax and latMin <= P_1[t][1] <= latMax) or (
+                    lonMin <= P_2[t][0] <= lonMax and latMin <= P_2[t][1] <= latMax) or (
+                    lonMin <= P_3[t][0] <= lonMax and latMin <= P_3[t][1] <= latMax) else 0 for t in range(len(tri_list))]
+        TriN = [tri_list[ii] for ii in range(len(ind)) if ind[ii] ==1]
+        P1N = [P_1[ii] for ii in range(len(ind)) if ind[ii] == 1]
+        P2N = [P_2[ii] for ii in range(len(ind)) if ind[ii] == 1]
+        P3N = [P_3[ii] for ii in range(len(ind)) if ind[ii] == 1]
+        x_unitN = [x_unit[ii] for ii in range(len(ind)) if ind[ii] == 1]
+        y_unitN = [y_unit[ii] for ii in range(len(ind)) if ind[ii] == 1]
+        return TriN, P1N, P2N, P3N, x_unitN, y_unitN
+
     def FindNewXY(lon_grid, lat_grid):
         rows, cols = lon_grid.shape
         rc_list = [(r, c) for r in range(rows) for c in range(cols)]
         P = [[lon_grid[r, c], lat_grid[r, c]] for r, c in rc_list]
-        func = partial(EachPoint, P_1, P_2, P_3)
+        func = partial(EachPoint, P1N, P2N, P3N)
         # coef = np.array(list(map(func, P)))                           # n,4  [[tri_num, w, u, v][][][]]
         pol = Pool()
         coef = np.array(pol.map(func, P))
@@ -153,10 +165,10 @@ def NewSigmaNaught5(GCP, Sigma_layer, rows_grid, cols_grid):
         Tri_num, Coef_W, Coef_U, Coef_V = coef[:, 0].astype(np.int_), coef[:, 1], coef[:, 2], coef[:, 3]
         del coef
         TF = [True if i >= 0 else False for i in Tri_num]  # point in triangle: True
-        R = [tri_list[t][0][0] if t >= 0 else -1 for t in Tri_num]
-        C = [tri_list[t][0][1] if t >= 0 else -1 for t in Tri_num]
-        R_unit = [y_unit[t] if t >= 0 else -1 for t in Tri_num]
-        C_unit = [x_unit[t] if t >= 0 else -1 for t in Tri_num]
+        R = [TriN[t][0][0] if t >= 0 else -1 for t in Tri_num]
+        C = [TriN[t][0][1] if t >= 0 else -1 for t in Tri_num]
+        R_unit = [y_unitN[t] if t >= 0 else -1 for t in Tri_num]
+        C_unit = [x_unitN[t] if t >= 0 else -1 for t in Tri_num]
         X_new = [Coef_U[t]*C_unit[t] + xv[C[t]] if TF[t] else np.nan for t in range(len(TF))]
         Y_new = [Coef_V[t]*R_unit[t] + yv[R[t]] if TF[t] else np.nan for t in range(len(TF))]
         return X_new, Y_new, TF
@@ -180,14 +192,13 @@ def NewSigmaNaught5(GCP, Sigma_layer, rows_grid, cols_grid):
 
     def EachRec(lon_arr, lat_arr):
         print('Grid..EachRec')
-        s1 = time.time()
         X, Y, Flag = FindNewXY(lon_arr, lat_arr)
         IterXYFlag = [[X[i], Y[i], Flag[i]] for i in range(len(X))]
-        print(time.time() - s1, 'sec')
         print('Value..InterpBary')
         sigmaT = list(map(InterpBary, IterXYFlag))
         rows, cols = lon_arr.shape
         sigmaT = np.array(sigmaT).reshape([rows, cols])
+
         return sigmaT
 
     def Pre_Process():
@@ -217,14 +228,18 @@ def NewSigmaNaught5(GCP, Sigma_layer, rows_grid, cols_grid):
     tri_list, P_1, P_2, P_3, x_unit, y_unit, tri1, tri2, upper_left_xy, b_root, xv, yv = Pre_Process()
     Sigma_New = np.empty([rows_grid, cols_grid], dtype=np.float32)
     print('Pre-Process:', time.time() - s1)
-    for i in range(36):
+    for i in range(2):
         lon_arr = jo.Matrix_load('Base-Longitude_Sub' + str(i + 1), b_root)
         lat_arr = jo.Matrix_load('Base-Latitude_Sub' + str(i + 1), b_root)
         up = upper_left_xy[i, 0]
         left = upper_left_xy[i, 1]
+        lonMax, lonMin = lon_arr.max()+0.14, lon_arr.min()-0.14
+        latMax, latMin = lat_arr.max()+0.2, lat_arr.min()-0.2
+        TriN, P1N, P2N, P3N, x_unitN, y_unitN = FilterTri(lonMin, lonMax, latMin, latMax)
         st = time.time()
         s = EachRec(lon_arr, lat_arr)
         print('Grid:', i + 1, '    ', time.time() - st, 'sec')
+        np.save('D:/Academic/MPS/Internship/Data/cathes/GraphicMethod/Temp/test_sub'+str(i+1), s)
         rows, cols = s.shape
         Sigma_New[up:up + rows, left:left + cols] = s
     return Sigma_New

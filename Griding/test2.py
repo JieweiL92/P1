@@ -1,38 +1,34 @@
-import Griding.IOcontrol as jo
-import Read_SentinelData.SentinelClass as rd
-import math
 import numpy as np
-from numba import jit
+import cv2
 
-dir = 'D:\\Academic\\MPS\\Internship\\Data\\Sentinel\\TEST'
+def ToGray(data):
+    rows, cols = data.shape
+    mm = data[~np.isnan(data)].mean()
+    for r in range(rows):
+        for c in range(cols):
+            if data[r,c] == np.nan:
+                data[r,c] = mm
+    coef = 255/(data.max()-data.min())
+    data = data-data.min()
+    img = np.around(data/coef).astype(np.uint8)
+    return img
+
+dir ='D:/Academic/MPS/Internship/Data/cathes/GraphicMethod/Temp/'
+filename = 'Layer2-20190304.npy'
+f1 = 'test_sub1.npy'
+data = np.load(dir+f1)
+rows, cols = data.shape
+arr = ToGray(data)
+# cv2.resizeWindow('Image1', cols, rows)
+# cv2.imshow('Image1', arr)
+# cv2.waitKey(0)
+# cv2.destroyAllWindows()
+mm = data[~np.isnan(data)].mean()
+print(mm)
+print(data[~np.isnan(data)].max())
+print(data[~np.isnan(data)].min())
+print(arr.max(), arr.min())
+print(rows, cols)
 
 
-def GCP_Matrix(data):
-    dat = np.array(data)
-    x = dat[:, 0].astype(np.int32)
-    y = dat[:, 1].astype(np.int32)
-    y = np.max(y) - y
-    lon = dat[:, 2].astype(np.float_)
-    lat = dat[:, 3].astype(np.float_)
-    row_num = x.tolist().count(0)
-    col_num = y.tolist().count(0)
-    x = x.reshape([row_num, col_num])
-    y = y.reshape([row_num, col_num])
-    lon = lon.reshape([row_num, col_num])
-    lat = lat.reshape([row_num, col_num])
-    lon = np.flip(lon, 0)
-    lat = np.flip(lat, 0)
-    y = np.flip(y, 0)
-    x_vec = x[0, :]
-    y_vec = y[:, 0]
-    return x_vec, y_vec, lon, lat
 
-
-if __name__ == '__main__':
-    d = rd.SentinelData()
-    d.Get_List(dir)
-    indice = 1
-    temp = rd.Data_Level1(d.series[indice], d.FList[indice])
-    temp.Get_Measure_Data()
-    GCP = temp.GCPs
-    xv, yv, lon_CP, lat_CP = GCP_Matrix(GCP)
