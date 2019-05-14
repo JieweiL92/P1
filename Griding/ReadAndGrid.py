@@ -5,8 +5,7 @@ import Griding.IOcontrol as jo
 import Griding.LayerCalculator as Lc
 import Read_SentinelData.SentinelClass as rd
 import numpy as np
-
-# import time
+import time
 
 
 # use first layer (base) as standard grid and attain its lon and lat
@@ -62,12 +61,13 @@ def OtherLayer(B_xsize, B_ysize, dir):
         temp.OneStep()
         GCP = temp.GCPs
         SigmaNaught = temp.NRCS
-        print(SigmaNaught.max(), SigmaNaught.min(), np.median(SigmaNaught))
-        print(temp.denoiseNRCS.max(), temp.denoiseNRCS.min(), np.median(temp.denoiseNRCS))
         name = 'Layer' + str(indice + 1) + '-' + d.series[indice]
         del temp
+        start = time.time()
         Sigma_N = gm.NewSigmaNaught5(GCP, SigmaNaught, B_ysize, B_xsize)
+        print('Time for resampling 1 SAR image:', (time.time()-start)/60, 'mins')
         del SigmaNaught, GCP
+        np.save(root+'/Temp/'+name+'.npy', Sigma_N)
         [sub_image, pt_list] = cod.N_sub(3, Sigma_N)
         jo.NMatrix_save(sub_image, name, root)
     return None

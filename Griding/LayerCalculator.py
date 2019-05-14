@@ -1,10 +1,16 @@
 import math, cv2
 import numpy as np
 
-def Display(dataset, n = 0):
-    data = dataset[:,:,n]
-    min_d, max_d = data.nanmin(), data.nanmax()
+def Display(dataset, r = 0.1, n = 0):
+    if len(dataset.shape) == 2:
+        data = dataset
+    else:
+        data = dataset[:,:,n]
+    min_d, max_d = np.nanmin(data), np.nanmax(data)
+    if max_d>r:
+        max_d = r
     data[np.isnan(data)] = min_d
+    data[data>r] = r
     coef = 255 / (max_d - min_d)
     data_new = data - min_d
     img = np.around(data_new*coef).astype(np.uint8)
@@ -20,7 +26,7 @@ def Resize_SigmaNaught(dat, n):
     rows, cols = dat.shape
     nr, nc = math.floor(rows / n), math.floor(cols / n)
     dat = dat[(rows - nr * n):rows, (cols - nc * n):cols]
-    new_pic = [[dat[r * n:(r + 1) * n, c * n:(c + 1) * n].mean() for c in range(nc)] for r in range(nr)]
+    new_pic = [[np.nanmean(np.array(dat[r * n:(r + 1) * n, c * n:(c + 1) * n])) for c in range(nc)] for r in range(nr)]
     new_pic = np.array(new_pic, dtype=np.float32)
     return new_pic
 

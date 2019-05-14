@@ -191,10 +191,8 @@ def NewSigmaNaught5(GCP, Sigma_layer, rows_grid, cols_grid):
             return result
 
     def EachRec(lon_arr, lat_arr):
-        print('Grid..EachRec')
         X, Y, Flag = FindNewXY(lon_arr, lat_arr)
         IterXYFlag = [[X[i], Y[i], Flag[i]] for i in range(len(X))]
-        print('Value..InterpBary')
         sigmaT = list(map(InterpBary, IterXYFlag))
         rows, cols = lon_arr.shape
         sigmaT = np.array(sigmaT).reshape([rows, cols])
@@ -215,7 +213,7 @@ def NewSigmaNaught5(GCP, Sigma_layer, rows_grid, cols_grid):
         P_2 = [[lon_CP[t[1][0], t[1][1]], lat_CP[t[1][0], t[1][1]]] for t in tri_list]
         P_3 = [[lon_CP[t[2][0], t[2][1]], lat_CP[t[2][0], t[2][1]]] for t in tri_list]
         x_unit = [xv[t[1][1]] - xv[t[0][1]] for t in tri_list]
-        y_unit = [xv[t[2][0]] - xv[t[0][0]] for t in tri_list]
+        y_unit = [yv[t[2][0]] - yv[t[0][0]] for t in tri_list]
         tri1 = np.array([[0, 0],
                          [0, 1],
                          [1, 0]])
@@ -224,11 +222,12 @@ def NewSigmaNaught5(GCP, Sigma_layer, rows_grid, cols_grid):
                          [0, 1]])
         return tri_list, P_1, P_2, P_3, x_unit, y_unit, tri1, tri2, upper_left_xy, b_root, xv, yv
 
-    s1 = time.time()
+
     tri_list, P_1, P_2, P_3, x_unit, y_unit, tri1, tri2, upper_left_xy, b_root, xv, yv = Pre_Process()
     Sigma_New = np.empty([rows_grid, cols_grid], dtype=np.float32)
-    print('Pre-Process:', time.time() - s1)
-    for i in range(2):
+    for i in range(36):
+        print('Grid Number:', i+1)
+        st = time.time()
         lon_arr = jo.Matrix_load('Base-Longitude_Sub' + str(i + 1), b_root)
         lat_arr = jo.Matrix_load('Base-Latitude_Sub' + str(i + 1), b_root)
         up = upper_left_xy[i, 0]
@@ -236,12 +235,10 @@ def NewSigmaNaught5(GCP, Sigma_layer, rows_grid, cols_grid):
         lonMax, lonMin = lon_arr.max()+0.14, lon_arr.min()-0.14
         latMax, latMin = lat_arr.max()+0.2, lat_arr.min()-0.2
         TriN, P1N, P2N, P3N, x_unitN, y_unitN = FilterTri(lonMin, lonMax, latMin, latMax)
-        st = time.time()
         s = EachRec(lon_arr, lat_arr)
-        print('Grid:', i + 1, '    ', time.time() - st, 'sec')
-        np.save('D:/Academic/MPS/Internship/Data/cathes/GraphicMethod/Temp/test_sub'+str(i+1), s)
         rows, cols = s.shape
         Sigma_New[up:up + rows, left:left + cols] = s
+        print('Time:', time.time()-st, 'sec')
     return Sigma_New
 
 
