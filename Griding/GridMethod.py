@@ -242,5 +242,137 @@ def NewSigmaNaught5(GCP, Sigma_layer, rows_grid, cols_grid):
     return Sigma_New
 
 
+
+def IsInPolygon(p_list, p0):
+    def Edge(p0, p1, p2):    # have direction
+        v1 = minus(p2, p1)
+        v2 = minus(p0, p1)
+        result = CrossProduct(v1, v2)
+        return result
+    func = partial(Edge, p0)
+    P1 = p_list
+    P2 = p_list[1:]
+    P2.append(p_list[0])
+    po = Pool()
+    arr = po.map(func, P1, P2)
+    po.close()
+    po.join()
+    if max(arr)<=0 or min(arr)>=0 or arr.count(0)>0:
+        return True
+    else:
+        return False
+
+
+def DistanceP2P(p1, p2):
+    v1 = minus(p1, p2)
+    result = np.sqrt(v1[0]**2 + v1[1]**2)
+    return result
+
+
+def Line2Nodes(coastline, lon_arr, lat_arr):
+# coastline is a n:2 ndarray
+# lon_arr, lat_arr are the longitude and latitude data of the grid
+    def EdgePoints(x1, x2, y1, y2):
+        Plist = [(lon_arr[y1, x], lat_arr[y1, x]) for x in range(x1, x2)]
+        Ptemp = [(lon_arr[y, x2], lat_arr[y, x2]) for y in range(y1, y2)]
+        Plist.extend(Ptemp)
+        Ptemp = [(lon_arr[y2, x], lat_arr[y2, x]) for x in range(x2, x1,-1)]
+        Plist.extend(Ptemp)
+        Ptemp = [(lon_arr[y, x1], lat_arr[y, x1]) for y in range(y2, y1,-1)]
+        Plist.extend(Ptemp)
+        return Plist
+
+    def PointInRect(p0, xx1,xx2,yy1,yy2):
+        x1, x2, y1, y2 =  xx1, xx2, yy1, yy2
+        flag = False
+        while ~flag:
+            if x2-x1<=2 and y2-y1<=2:
+                flag = True
+            else:
+                x_un = math.ceil((x2-x1)/3)
+                x_m1 = x1 + x_un
+                x_m2 = x_m1 + x_un
+                px1 = EdgePoints(x1, x_m1, y1, y2)
+                px2 = EdgePoints(x_m1, x_m2, y1, y2)
+                if IsInPolygon(px1, p0):
+                    x2 = x_m1
+                elif IsInPolygon(px2, p0):
+                    x1, x2 = x_m1, x_m2
+                else:
+                    x1 = x_m2
+                if x2 == x1:
+                    x1 -=1
+
+                y_un = math.ceil((y2-y1)/3)
+                y_m1 = y1 + y_un
+                y_m2 = y_m1 + y_un
+                py1 = EdgePoints(x1, x2, y1, y_m1)
+                py2 = EdgePoints(x2, x2, y_m1, y_m2)
+                if IsInPolygon(py1, p0):
+                    y2 = y_m1
+                elif IsInPolygon(py2, p0):
+                    y1, y2 = y_m1, y_m2
+                else:
+                    y1 = y_m2
+                if y2 == y1:
+                    y1 -= 1
+        return x1, x2, y1, y2
+
+    def Nearest(p0, x1, x2, y1, y2):
+        rc = [(r, c) for r in range(y1,y2+1) for c in range(x1, x2+1)]
+        P = [(lon_arr[r,c], lat_arr[r,c]) for r, c in rc]
+        func2 = partial(DistanceP2P, p0)
+        d = list(map(func2, P))
+        ind = d.index(min(d))
+        return rc[ind]
+
+    def NextPoints(referencePC, pn):
+        x1, x2 = referencePC[1]-10, referencePC[1]+10
+        y1, y2 = referencePC[0]-10, referencePC[0]+10
+        if x2>cols-1:
+            x2 = cols-1
+        if x1<0:
+            x1 = 0
+        if y2>rows-1:
+            y2 = rows-1
+        if y1<0:
+            y1 = 0
+        pp = EdgePoints(x1, x2, y1, y2)
+        if IsInPolygon(pp, pn):
+            temp = Nearest(pn, x1, x2, y1, y2)
+        else:
+            x1, x2 = referencePC[1] - 100, referencePC[1] + 100
+            y1, y2 = referencePC[0] - 100, referencePC[0] + 100
+            if x2 > cols - 1:
+                x2 = cols - 1
+            if x1 < 0:
+                x1 = 0
+            if y2 > rows - 1:
+                y2 = rows - 1
+            if y1 < 0:
+                y1 = 0
+            temp = Nearest(pn, x1, x2, y1, y2)
+        return temp
+
+    rows, cols = lon_arr.shape
+    Surrounding = EdgePoints(0, cols-1, 0, rows-1)
+    func1 = partial(IsInPolygon, Surrounding)
+    po = Pool()
+    TF = po.map(func1, coastline)
+    po.close()
+    po.join()
+    coast_n = [coastline[i] for i in range(len(TF)) if TF[i]]    # new coastline, delete points outside the grid
+    c1, c2, r1, r2 = PointInRect(coast_n[0], 0, cols-1, 0, rows-1)
+    coastline_RC = []
+    temp_rc = Nearest(coast_n[0], c1, c2, r1, r2)
+    coastline_RC.append(temp_rc)
+    for point in coast_n[1:]:
+        temp_rc = NextPoints(temp_rc, point)
+        coastline_RC.append(temp_rc)
+    coast_n = np.array(coastline_RC).astype(np.int32)
+    jo.Matrix_save(coast_n, 'Coastline in Grid', root='D:/Academic/MPS/Internship/Data/coastline/')
+    return None
+
+
 if __name__ == '__main__':
     pass

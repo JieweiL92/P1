@@ -41,7 +41,7 @@ def Resize_LL(dat, n):
     return new_LL
 
 
-def CoastLinePosition(Lon, Lat, resolution):
+def LoadCoastlineXYZ():
     path = input('Where do you save your coastline data?\nPlease ')
     name = input('The name of your file(do not include the .xyz):')
     f = open(path + '//' + name + '.xyz')
@@ -52,12 +52,15 @@ def CoastLinePosition(Lon, Lat, resolution):
     f.close()
     coastline_dat = np.array(coastline_dat, dtype=np.float64)
     coastline = coastline_dat[:, 0:2].astype(np.float64)
-    del coastline_dat
-    rows, cols = Lon.shape
-    Yposition = np.empty([1, rows], dtype=np.int32)
+    return coastline
+
+
 
 
 def Distance(p0, coastline):
     px, py = p0[1], p0[0]
     d = list(map(lambda x, y: np.sqrt((x - px) ** 2 + (y - py) ** 2), coastline[:, 1], coastline[:, 0]))
     return max(d)
+
+
+def Distance

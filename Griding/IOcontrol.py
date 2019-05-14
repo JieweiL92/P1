@@ -41,3 +41,8 @@ def NMatrix_save(arr, name, root='D:/Academic/MPS/Internship/Data/cathes/'):
         n += 1
         Matrix_save(a, name + '_Sub' + str(n), root)
     return None
+
+@jit
+def LoadCoastlineGridded(root ='D:/Academic/MPS/Internship/Data/coastline/'):
+    arr = np.load(root+'Coastline in Grid.npy')
+    return arr
