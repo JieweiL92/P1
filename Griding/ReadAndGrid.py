@@ -62,10 +62,11 @@ def OtherLayer(B_xsize, B_ysize, dir):
         temp.OneStep()
         GCP = temp.GCPs
         SigmaNaught = temp.NRCS
+        print(SigmaNaught.max(), SigmaNaught.min(), np.median(SigmaNaught))
+        print(temp.denoiseNRCS.max(), temp.denoiseNRCS.min(), np.median(temp.denoiseNRCS))
         name = 'Layer' + str(indice + 1) + '-' + d.series[indice]
         del temp
         Sigma_N = gm.NewSigmaNaught5(GCP, SigmaNaught, B_ysize, B_xsize)
-        np.save(root+'/Temp/'+name+'.npy', Sigma_N)
         del SigmaNaught, GCP
         [sub_image, pt_list] = cod.N_sub(3, Sigma_N)
         jo.NMatrix_save(sub_image, name, root)

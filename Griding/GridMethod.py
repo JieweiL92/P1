@@ -165,10 +165,10 @@ def NewSigmaNaught5(GCP, Sigma_layer, rows_grid, cols_grid):
         Tri_num, Coef_W, Coef_U, Coef_V = coef[:, 0].astype(np.int_), coef[:, 1], coef[:, 2], coef[:, 3]
         del coef
         TF = [True if i >= 0 else False for i in Tri_num]  # point in triangle: True
-        R = [TriN[t][0][0] if t >= 0 else -1 for t in Tri_num]
-        C = [TriN[t][0][1] if t >= 0 else -1 for t in Tri_num]
-        R_unit = [y_unitN[t] if t >= 0 else -1 for t in Tri_num]
-        C_unit = [x_unitN[t] if t >= 0 else -1 for t in Tri_num]
+        R = [TriN[t][0][0] for t in Tri_num]
+        C = [TriN[t][0][1] for t in Tri_num]
+        R_unit = [y_unitN[t] for t in Tri_num]
+        C_unit = [x_unitN[t] for t in Tri_num]
         X_new = [Coef_U[t]*C_unit[t] + xv[C[t]] if TF[t] else np.nan for t in range(len(TF))]
         Y_new = [Coef_V[t]*R_unit[t] + yv[R[t]] if TF[t] else np.nan for t in range(len(TF))]
         return X_new, Y_new, TF

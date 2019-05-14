@@ -3,9 +3,11 @@ import numpy as np
 
 def Display(dataset, n = 0):
     data = dataset[:,:,n]
-    coef = 255/(data.max()-data.min())
-    data = data-data.min()
-    img = np.around(data/coef).astype(np.uint8)
+    min_d, max_d = data.nanmin(), data.nanmax()
+    data[np.isnan(data)] = min_d
+    coef = 255 / (max_d - min_d)
+    data_new = data - min_d
+    img = np.around(data_new*coef).astype(np.uint8)
     rows, cols = data.shape
     cv2.resizeWindow('Image1', cols, rows)
     cv2.imshow('Image1', img)
@@ -17,7 +19,7 @@ def Display(dataset, n = 0):
 def Resize_SigmaNaught(dat, n):
     rows, cols = dat.shape
     nr, nc = math.floor(rows / n), math.floor(cols / n)
-    dat = dat[rows - nr * n:rows, cols - nc * n:cols]
+    dat = dat[(rows - nr * n):rows, (cols - nc * n):cols]
     new_pic = [[dat[r * n:(r + 1) * n, c * n:(c + 1) * n].mean() for c in range(nc)] for r in range(nr)]
     new_pic = np.array(new_pic, dtype=np.float32)
     return new_pic
@@ -26,7 +28,7 @@ def Resize_SigmaNaught(dat, n):
 def Resize_LL(dat, n):
     rows, cols = dat.shape
     nr, nc = math.floor(rows / n), math.floor(cols / n)
-    dat = dat[rows - nr * n:rows, cols - nc * n:cols]
+    dat = dat[(rows - nr * n):rows, (cols - nc * n):cols]
     new_LL = [[(dat[r * n, c * n] + dat[r * n, (c + 1) * n - 1] + dat[(r + 1) * n - 1, c * n] + dat[
         (r + 1) * n - 1, (c + 1) * n - 1]) / 4 for c in range(nc)] for r in range(nr)]
     new_LL = np.array(new_LL, dtype=np.float_)

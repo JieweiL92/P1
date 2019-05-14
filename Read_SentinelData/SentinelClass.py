@@ -98,6 +98,7 @@ class Data_Level1(object):  # 单独一份 level1 数据
         self.__PixelRange = []  # from calibration, [0,40,60,,,,]
         self.__SigmaA = []  # from calibration, [6.28e3,6.27e3,,,,]
         self.__noise = []
+        self.__denoiseNRCS = []
 
     @property
     def name(self):
@@ -134,6 +135,10 @@ class Data_Level1(object):  # 单独一份 level1 数据
     @property
     def noise(self):
         return self.__noise
+
+    @property
+    def denoiseNRCS(self):
+        return self.__denoiseNRCS
 
     def Get_Calibrated_Data(self):
         fid = ET.parse(self.__addr[0])  # No.n file and the calibration data [[c,m][]]
@@ -218,8 +223,12 @@ class Data_Level1(object):  # 单独一份 level1 数据
             for xi in range(x1, x2):
                 sigmaA_Range[xi] = (x2 - xi) * y1 / (x2 - x1) + (xi - x1) * y2 / (x2 - x1)
         sigmaA_Range[-1] = self.__SigmaA[-1]
-        Mat = (Mat / sigmaA_Range) ** 2 - self.__noise / (sigmaA_Range * sigmaA_Range)
-        self.__NRCS = np.array(Mat, dtype=np.float32)
+        Mat = (Mat / sigmaA_Range) ** 2
+        self.__NRCS = Mat.astype(np.float32)
+        self.__noise = self.__noise / (sigmaA_Range * sigmaA_Range)
+        Mat = Mat - self.__noise
+        self.__denoiseNRCS = Mat.astype(np.float32)
+        self.__denoiseNRCS = np.where(self.__denoiseNRCS>0, self.__denoiseNRCS, 0)
         del Mat
 
     def OneStep(self):
