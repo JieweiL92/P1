@@ -42,7 +42,7 @@ def Resize_LL(dat, n):
 
 
 def LoadCoastlineXYZ():
-    path = input('Where do you save your coastline data?\nPlease ')
+    path = input('Where do you save your coastline data?\nPlease input your file path:')
     name = input('The name of your file(do not include the .xyz):')
     f = open(path + '//' + name + '.xyz')
     coastline_dat = []
@@ -63,4 +63,3 @@ def Distance(p0, coastline):
     return max(d)
 
 
-def Distance
