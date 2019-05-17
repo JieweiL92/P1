@@ -137,21 +137,15 @@ def EachPoint(P_1, P_2, P_3, p):
 
 
 def IsInPolygon(p_list, p0):
-    def Edge(p0, p1, p2):    # have direction
-        v1 = minus(p2, p1)
-        v2 = minus(p0, p1)
-        result = CrossProduct(v1, v2)
-        return result
-    func = partial(Edge, p0)
-    P1 = p_list
-    P2 = p_list[1:]
-    P2.append(p_list[0])
-    arr = list(map(func, P1, P2))
-    # po = Pool()
-    # arr = po.map(func, P1, P2)
-    # po.close()
-    # po.join()
-    if max(arr)<=0 or min(arr)>=0 or arr.count(0)>0:
+    P1 = np.array(p_list) - np.array(p0)
+    Pt = np.empty_like(P1)
+    P2 = np.empty_like(P1)
+    Pt[:-1] = P1[1:]
+    Pt[-1] = P1[0]
+    P2[:, 0] = Pt[:, 1]
+    P2[:, 1] = -Pt[:, 0]
+    Pt = (P1*P2).sum(axis=1)
+    if Pt.any()>=0 or Pt.any()<=0:
         return True
     else:
         return False
@@ -339,9 +333,30 @@ def NewSigmaNaught5(GCP, Sigma_layer, rows_grid, cols_grid):
 
 
 
+def TryMerge(root = 'D:/Academic/MPS/Internship/Data/cathes/GraphicMethod/BaseLayer_LL/'):
+    cp = np.load(root+'Upper Left Points of Subimages.npy')
+    lat_name = 'Base-Latitude_Sub'
+    lon_name = 'Base-Longitude_Sub'
+    up, left = cp[-1,0], cp[-1,1]
+    lon_list, lat_list = [],[]
+    for i in range(36):
+        lon_list.append(np.load(root+lon_name+str(i+1)+'.npy'))
+        lat_list.append(np.load(root+lat_name+str(i+1)+'.npy'))
+    arr = lat_list[-1]
+    rows, cols = arr.shape
+    rows, cols = rows+up, cols+left
+    lon_grid = np.empty([rows, cols], dtype=np.float_)
+    lat_grid = np.empty_like(lon_grid)
+    for i in range(36):
+        lon_arr, lat_arr = lon_list[i], lat_list[i]
+        up, left = cp[i, 0], cp[i, 1]
+        r,c =lon_arr.shape
+        lon_grid[up:up + r, left:left + c] = lon_arr
+        lat_grid[up:up + r, left:left + c] = lat_arr
+    return lon_grid, lat_grid
 
 
-def Line2Nodes(coastline, lon_arr, lat_arr):
+def Line2Nodes(coastline, lon_arr, lat_arr, root='D:/Academic/MPS/Internship/Data/coastline/'):
 # coastline is a n:2 ndarray
 # lon_arr, lat_arr are the longitude and latitude data of the grid
     def EdgePoints(x1, x2, y1, y2):
@@ -357,7 +372,7 @@ def Line2Nodes(coastline, lon_arr, lat_arr):
     def PointInRect(p0, xx1,xx2,yy1,yy2):
         x1, x2, y1, y2 =  xx1, xx2, yy1, yy2
         flag = False
-        while ~flag:
+        while not flag:
             if x2-x1<=2 and y2-y1<=2:
                 flag = True
             else:
@@ -440,8 +455,17 @@ def Line2Nodes(coastline, lon_arr, lat_arr):
         temp_rc = NextPoints(temp_rc, point)
         coastline_RC.append(temp_rc)
     coast_n = np.array(coastline_RC).astype(np.int32)
-    jo.Matrix_save(coast_n, 'Coastline in Grid', root='D:/Academic/MPS/Internship/Data/coastline/')
+    jo.Matrix_save(coast_n, 'Coastline in Grid', root)
     return None
+
+
+def OneStepCoastline():
+    lon_grid, lat_grid = TryMerge()
+    coastXYZ = Lc.LoadCoastlineXYZ()
+    Line2Nodes(coastXYZ, lon_grid, lat_grid)
+    line = np.load('D:/Academic/MPS/Internship/Data/coastline/Coastline in Grid.npy')
+    return line
+
 
 
 if __name__ == '__main__':
