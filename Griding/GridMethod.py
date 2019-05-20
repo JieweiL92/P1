@@ -145,7 +145,7 @@ def IsInPolygon(p_list, p0):
     P2[:, 0] = Pt[:, 1]
     P2[:, 1] = -Pt[:, 0]
     Pt = (P1*P2).sum(axis=1)
-    if Pt.any()>=0 or Pt.any()<=0:
+    if Pt.all()>=0 or Pt.all()<=0:
         return True
     else:
         return False
@@ -195,73 +195,6 @@ def NewSigmaNaught5(GCP, Sigma_layer, rows_grid, cols_grid):
         X_new = [Coef_U[t]*C_unit[t] + xv[C[t]] if TF[t] else np.nan for t in range(len(TF))]
         Y_new = [Coef_V[t]*R_unit[t] + yv[R[t]] if TF[t] else np.nan for t in range(len(TF))]
         return X_new, Y_new, TF
-
-    #
-    # def SearchNewXY(lon_grid, lat_grid):
-    #     def EdgePoints(x1, x2, y1, y2):
-    #         Plist = [(lon_arr[y1, x], lat_arr[y1, x]) for x in range(x1, x2)]
-    #         Ptemp = [(lon_arr[y, x2], lat_arr[y, x2]) for y in range(y1, y2)]
-    #         Plist.extend(Ptemp)
-    #         Ptemp = [(lon_arr[y2, x], lat_arr[y2, x]) for x in range(x2, x1,-1)]
-    #         Plist.extend(Ptemp)
-    #         Ptemp = [(lon_arr[y, x1], lat_arr[y, x1]) for y in range(y2, y1,-1)]
-    #         Plist.extend(Ptemp)
-    #         return Plist
-    #
-    #     def PointInRect(xx1, xx2, yy1, yy2, p0):
-    #         x1, x2, y1, y2 = xx1, xx2, yy1, yy2
-    #         pxy = EdgePoints(x1, x2, y1, y2)
-    #         if ~IsInPolygon(pxy, p0):
-    #             return -1, -1
-    #         else:
-    #             flag = False
-    #             while ~flag:
-    #                 if x2 - x1 <= 1 and y2 - y1 <= 1:
-    #                     flag = True
-    #                 else:
-    #                     if x2 - x1 > 1:
-    #                         x_un = math.ceil((x2 - x1) / 3)
-    #                         x_m1 = x1 + x_un
-    #                         x_m2 = x_m1 + x_un
-    #                         px1 = EdgePoints(x1, x_m1, y1, y2)
-    #                         px2 = EdgePoints(x_m1, x_m2, y1, y2)
-    #                         if IsInPolygon(px1, p0):
-    #                             x2 = x_m1
-    #                         elif IsInPolygon(px2, p0):
-    #                             x1, x2 = x_m1, x_m2
-    #                         else:
-    #                             x1 = x_m2
-    #                         if x2 == x1:
-    #                             x1 -= 1
-    #                     if y2 - y1 > 1:
-    #                         y_un = math.ceil((y2 - y1) / 3)
-    #                         y_m1 = y1 + y_un
-    #                         y_m2 = y_m1 + y_un
-    #                         py1 = EdgePoints(x1, x2, y1, y_m1)
-    #                         py2 = EdgePoints(x2, x2, y_m1, y_m2)
-    #                         if IsInPolygon(py1, p0):
-    #                             y2 = y_m1
-    #                         elif IsInPolygon(py2, p0):
-    #                             y1, y2 = y_m1, y_m2
-    #                         else:
-    #                             y1 = y_m2
-    #                         if y2 == y1:
-    #                             y1 -= 1
-    #             return x1, y1
-    #
-    #     rows, cols = lon_grid.shape
-    #     rc_list = [(r, c) for r in range(rows) for c in range(cols)]
-    #     P = [[lon_grid[r, c], lat_grid[r, c]] for r, c in rc_list]
-    #     func3 =  partial(PointInRect, 0, cols-1, 0, rows-1)
-    #     po=Pool()
-    #     xylist = np.array(po.map(func3, P)).astype(np.int32)
-    #     po.close()
-    #     po.join()
-    #     X_new, Y_new = xylist[:,0], xylist[:,1]
-    #     TF = [True if i >= 0 else False for i in X_new]  # point in triangle: True
-    #     return X_new, Y_new, TF
-
-
 
     def InterpBary(xytf):
         x, y, tf = xytf[0], xytf[1], xytf[2]
@@ -369,8 +302,8 @@ def Line2Nodes(coastline, lon_arr, lat_arr, root='D:/Academic/MPS/Internship/Dat
         Plist.extend(Ptemp)
         return Plist
 
-    def PointInRect(p0, xx1,xx2,yy1,yy2):
-        x1, x2, y1, y2 =  xx1, xx2, yy1, yy2
+    def PointInRect(p0):
+        x1, x2, y1, y2 =  0, cols-1, 0, rows-1
         flag = False
         while not flag:
             if x2-x1<=2 and y2-y1<=2:
@@ -406,7 +339,8 @@ def Line2Nodes(coastline, lon_arr, lat_arr, root='D:/Academic/MPS/Internship/Dat
                         y1 -= 1
         return x1, x2, y1, y2
 
-    def Nearest(p0, x1, x2, y1, y2):
+    def Nearest(p0, rect):
+        x1, x2, y1, y2 = rect[0], rect[1], rect[2], rect[3]
         rc = [(r, c) for r in range(y1,y2+1) for c in range(x1, x2+1)]
         P = [(lon_arr[r,c], lat_arr[r,c]) for r, c in rc]
         func2 = partial(DistanceP2P, p0)
@@ -414,46 +348,41 @@ def Line2Nodes(coastline, lon_arr, lat_arr, root='D:/Academic/MPS/Internship/Dat
         ind = d.index(min(d))
         return rc[ind]
 
-    def NextPoints(referencePC, pn):
-        x1, x2 = referencePC[1]-10, referencePC[1]+10
-        y1, y2 = referencePC[0]-10, referencePC[0]+10
-        if x2>cols-1:
-            x2 = cols-1
-        if x1<0:
-            x1 = 0
-        if y2>rows-1:
-            y2 = rows-1
-        if y1<0:
-            y1 = 0
-        pp = EdgePoints(x1, x2, y1, y2)
-        if IsInPolygon(pp, pn):
-            temp = Nearest(pn, x1, x2, y1, y2)
-        else:
-            x1, x2 = referencePC[1] - 100, referencePC[1] + 100
-            y1, y2 = referencePC[0] - 100, referencePC[0] + 100
-            if x2 > cols - 1:
-                x2 = cols - 1
-            if x1 < 0:
-                x1 = 0
-            if y2 > rows - 1:
-                y2 = rows - 1
-            if y1 < 0:
-                y1 = 0
-            temp = Nearest(pn, x1, x2, y1, y2)
-        return temp
+    # def NextPoints(referencePC, pn):
+    #     x1, x2 = referencePC[1]-10, referencePC[1]+10
+    #     y1, y2 = referencePC[0]-10, referencePC[0]+10
+    #     if x2>cols-1:
+    #         x2 = cols-1
+    #     if x1<0:
+    #         x1 = 0
+    #     if y2>rows-1:
+    #         y2 = rows-1
+    #     if y1<0:
+    #         y1 = 0
+    #     pp = EdgePoints(x1, x2, y1, y2)
+    #     if IsInPolygon(pp, pn):
+    #         temp = Nearest(pn, x1, x2, y1, y2)
+    #     else:
+    #         x1, x2 = referencePC[1] - 100, referencePC[1] + 100
+    #         y1, y2 = referencePC[0] - 100, referencePC[0] + 100
+    #         if x2 > cols - 1:
+    #             x2 = cols - 1
+    #         if x1 < 0:
+    #             x1 = 0
+    #         if y2 > rows - 1:
+    #             y2 = rows - 1
+    #         if y1 < 0:
+    #             y1 = 0
+    #         temp = Nearest(pn, x1, x2, y1, y2)
+    #     return temp
 
     rows, cols = lon_arr.shape
     Surrounding = EdgePoints(0, cols-1, 0, rows-1)
     func1 = partial(IsInPolygon, Surrounding)
     TF = list(map(func1, coastline))
     coast_n = [coastline[i] for i in range(len(TF)) if TF[i]]    # new coastline, delete points outside the grid
-    c1, c2, r1, r2 = PointInRect(coast_n[0], 0, cols-1, 0, rows-1)
-    coastline_RC = []
-    temp_rc = Nearest(coast_n[0], c1, c2, r1, r2)
-    coastline_RC.append(temp_rc)
-    for point in coast_n[1:]:
-        temp_rc = NextPoints(temp_rc, point)
-        coastline_RC.append(temp_rc)
+    arr = list(map(PointInRect, coast_n))
+    coastline_RC = list(map(Nearest, coast_n, arr))
     coast_n = np.array(coastline_RC).astype(np.int32)
     jo.Matrix_save(coast_n, 'Coastline in Grid', root)
     return None

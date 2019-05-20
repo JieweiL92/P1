@@ -1,9 +1,14 @@
 from datetime import datetime, timedelta
+from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
 import math
+import Download.Sentinel_Data as ds
 
 
 footprint = ''      # WKT format
 orbit_circle = 1    # in 175
+download_path = 'F:/Jiewei/Sentinel-1/Level1-GRD-IW'
+
+
 
 
 
@@ -26,6 +31,17 @@ def DateList(d):
     return DL
 
 
+def DownloadData(products, api):
+    Off_List = []
+    for t in products:
+        info = api.get_product_odata(t.uuid)
+        if info['Online']:
+            print('Product {} is online. Starting download.'.format(t.uuid))
+            api.download(t.uuid, directory_path = download_path)
+        else:
+            print('Product {} is not online.'.format(t.uuid))
+            Off_List.append(t.uuid)
+    return Off_List
 
 
 

@@ -342,6 +342,43 @@ def WriteData(root):
     return
 
 
+class Sentinel_Product(object):
+    def __init__(self, uuid, sensingtime, direction, name, relativeorbitnumber, sn):
+        self.__uuid = uuid
+        self.__time = sensingtime
+        self.__direction = direction
+        self.__name = name
+        self.__on = relativeorbitnumber
+        self.__sn = sn
+        self.__online = True
+
+    @property
+    def uuid(self):
+        return self.__uuid
+
+    @property
+    def time(self):
+        return self.__time
+
+    @property
+    def direction(self):
+        return self.__direction
+
+    @property
+    def name(self):
+        return self.__name
+
+    @property
+    def online(self):
+        return self.__online
+
+    @property
+    def on(self):
+        return self.__on
+    @property
+    def sn(self):
+        return self.__sn
+
 if __name__ == '__main__':
     f_root = input('Please input the file you store Sentinel-1 level 1 product:\n')
     WriteData(f_root)

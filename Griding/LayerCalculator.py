@@ -10,7 +10,7 @@ def Display(dataset, r = 0.1, n = 0):
     if max_d>r:
         max_d = r
     data[np.isnan(data)] = min_d
-    data[data>r] = r
+    data[data>r] = max_d
     coef = 255 / (max_d - min_d)
     data_new = data - min_d
     img = np.around(data_new*coef).astype(np.uint8)
