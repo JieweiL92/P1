@@ -4,7 +4,6 @@ import os
 import sys
 import time
 import xml.etree.ElementTree as ET
-
 import netCDF4 as ncdf
 import numpy as np
 import numpy.ma as ma
@@ -99,6 +98,7 @@ class Data_Level1(object):  # 单独一份 level1 数据
         self.__SigmaA = []  # from calibration, [6.28e3,6.27e3,,,,]
         self.__noise = []
         self.__denoiseNRCS = []
+        self.__direction = ''
 
     @property
     def name(self):
@@ -140,6 +140,10 @@ class Data_Level1(object):  # 单独一份 level1 数据
     def denoiseNRCS(self):
         return self.__denoiseNRCS
 
+    @property
+    def direction(self):
+        return self.__direction
+
     def Get_Calibrated_Data(self):
         fid = ET.parse(self.__addr[0])  # No.n file and the calibration data [[c,m][]]
         f_root = fid.getroot()
@@ -152,7 +156,6 @@ class Data_Level1(object):  # 单独一份 level1 数据
         for i in range(C_amount):
             root = C_vector[i]  # <calibration vector>
             PixelS, SigmaS = root[2].text, root[3].text
-            # cut and convert the value
             LutPixel.append(list(map(int, PixelS.split())))
             LutSigma0.append(list(map(float, SigmaS.split())))
 
@@ -164,6 +167,18 @@ class Data_Level1(object):  # 单独一份 level1 数据
             self.__SigmaA = LutSigma0[0]
         else:
             print('Errors in Calibration Data %s: SigmaA' % self.__name)
+
+        fn = self.__addr[0].rfind('annotation')
+        froot = self.__addr[0][:fn+10]
+        filelist = os.listdir(froot)
+        for t in filelist:
+            if t.find('vv')>=0 and t.find('xml')>=0:
+                fn = t
+                break
+        froot = froot+'\\'+fn
+        fid = ET.parse(froot)
+        GeneralAnnotation = fid.getroot()[2]
+        self.__direction = GeneralAnnotation[0][0].text
 
     def Get_Noise_Data(self):
         fid = ET.parse(self.__addr[2])  # No.n file and the calibration data [[c,m][]]
@@ -230,6 +245,10 @@ class Data_Level1(object):  # 单独一份 level1 数据
         self.__denoiseNRCS = Mat.astype(np.float32)
         self.__denoiseNRCS = np.where(self.__denoiseNRCS>0, self.__denoiseNRCS, 0)
         del Mat
+        if self.__direction == 'Descending':
+            self.__NRCS = np.fliplr(self.__NRCS)
+            self.__denoiseNRCS = np.fliplr(self.__denoiseNRCS)
+        return None
 
     def OneStep(self):
         st = time.time()

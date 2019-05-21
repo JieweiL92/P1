@@ -33,8 +33,12 @@ def DateList(d):
 
 def DownloadData(products, api):
     Off_List = []
+    print(len(products))
+    n = 0
     for t in products:
         info = api.get_product_odata(t.uuid)
+        n = n+1
+        print(n)
         if info['Online']:
             print('Product {} is online. Starting download.'.format(t.uuid))
             api.download(t.uuid, directory_path = download_path)

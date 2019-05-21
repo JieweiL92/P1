@@ -145,7 +145,7 @@ def IsInPolygon(p_list, p0):
     P2[:, 0] = Pt[:, 1]
     P2[:, 1] = -Pt[:, 0]
     Pt = (P1*P2).sum(axis=1)
-    if Pt.all()>=0 or Pt.all()<=0:
+    if (Pt<=0).all():
         return True
     else:
         return False
