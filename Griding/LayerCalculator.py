@@ -1,6 +1,10 @@
 import math, cv2, os
 import numpy as np
 
+grid_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level 1/Grid'
+layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level 1/Layer'
+coast_root='D:/Academic/MPS/Internship/Data/coastline'
+
 def Display(dataset, r = 0.1, n = 0, mode = 'linear'):
     if len(dataset.shape) == 2:
         data = dataset
@@ -68,7 +72,7 @@ def Distance(p0, coastline):
     return max(d)
 
 
-def ReadSubImage(n, root = 'D:/Academic/MPS/Internship/Data/cathes/GraphicMethod/'):
+def ReadSubImage(n, root = layer_root):
     file_list = os.listdir(root)
     file_list2 = [t for t in file_list if t.find('Sub'+str(n))>0]
     file_list2.sort()

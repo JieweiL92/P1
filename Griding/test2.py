@@ -15,8 +15,8 @@ def TryDisplay():
     return None
 
 def HaveALook(r):
-    # path = input('Where do you save the product?')
-    path = 'F:\\Jiewei\\Sentinel-1\\Level1-GRD-IW'
+    path = input('Where do you save the product?')
+    # path = 'F:\\Jiewei\\Sentinel-1\\Level1-GRD-IW'
     ans = int(input('Which product? Input the number:'))
     t = rd.SentinelData()
     t.Get_List(root=path)

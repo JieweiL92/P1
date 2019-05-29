@@ -15,15 +15,13 @@ import time
 # apply delaunay triangulation-------------many small triangles
 # figure the
 
-root = 'D:/Academic/MPS/Internship/Data/cathes/GraphicMethod/'
-
+layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level 1/Layer'
 
 def FirstLayer(name, dir):
-    global root
     dat = rd.Data_Level1(name, dir)
     dat.OneStep()
     GCP = dat.GCPs
-    SigmaNaught = dat.NRCS
+    SigmaNaught = dat.denoiseNRCS
     y_lim, x_lim = SigmaNaught.shape
     del dat
 
@@ -44,8 +42,8 @@ def FirstLayer(name, dir):
     ny_lim, nx_lim = SigmaNaught.shape
     [sub_image, pt_list] = cod.N_sub(3, SigmaNaught)
     del SigmaNaught
-    jo.Matrix_save(pt_list, 'Upper Left Points of SubImages', root)
-    jo.NMatrix_save(sub_image, 'BaseLayer', root)
+    jo.Matrix_save(pt_list, 'Upper Left Points of SubImages', layer_root)
+    jo.NMatrix_save(sub_image, 'BaseLayer', layer_root)
     del sub_image
     gm.AllLonLat('Base', x_lim, y_lim, GCP, n)
     return nx_lim, ny_lim
@@ -54,7 +52,6 @@ def FirstLayer(name, dir):
 def OtherLayer(B_xsize, B_ysize, dir):
     d = rd.SentinelData()
     d.Get_List(dir)
-    global root
     # for indice in range(len(d.series)):
     for indice in [1]:
         temp = rd.Data_Level1(d.series[indice], d.FList[indice])
@@ -67,9 +64,8 @@ def OtherLayer(B_xsize, B_ysize, dir):
         Sigma_N = gm.NewSigmaNaught5(GCP, SigmaNaught, B_ysize, B_xsize)
         print('Time for resampling 1 SAR image:', (time.time()-start)/60, 'mins')
         del SigmaNaught, GCP
-        np.save(root+'/Temp/'+name+'.npy', Sigma_N)
         [sub_image, pt_list] = cod.N_sub(3, Sigma_N)
-        jo.NMatrix_save(sub_image, name, root)
+        jo.NMatrix_save(sub_image, name, layer_root)
     return None
 
 

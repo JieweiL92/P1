@@ -10,7 +10,9 @@ import time
 from numba import jit
 
 dir = 'D:\\Academic\\MPS\\Internship\\Data\\Sentinel\\TEST'
-
+grid_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level 1/Grid'
+layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level 1/Layer'
+coast_root='D:/Academic/MPS/Internship/Data/coastline'
 
 def GCP_Matrix(data):
     dat = np.array(data)
@@ -66,19 +68,17 @@ def AllLonLat(name, x0, y0, GCP, n):
 
     print('It takes %f seconds to calculate the Longitude and Latitude' % (time.time() - st))
     if name == 'Base':
-        root = 'D:/Academic/MPS/Internship/Data/cathes/GraphicMethod/BaseLayer_LL/'
         Lon_Arr = Lc.Resize_LL(Lon_Arr, n)
         Lat_Arr = Lc.Resize_LL(Lat_Arr, n)
         [subLon, pt_list] = cod.N_sub(6, Lon_Arr)
         [subLat, pt_list] = cod.N_sub(6, Lat_Arr)
         del Lon_Arr, Lat_Arr
         st = time.time()
-        jo.Matrix_save(pt_list, 'Upper Left Points of SubImages', root)
-        jo.NMatrix_save(subLon, 'Base-Longitude', root)
-        jo.NMatrix_save(subLat, 'Base-Latitude', root)
+        jo.Matrix_save(pt_list, 'Upper Left Points of SubImages', grid_root)
+        jo.NMatrix_save(subLon, 'Base-Longitude', grid_root)
+        jo.NMatrix_save(subLat, 'Base-Latitude', grid_root)
         print('It takes %f seconds to save LL data' % (time.time() - st))
     else:
-        root = 'D:/Academic/MPS/Internship/Data/cathes/GraphicMethod/Temp/'
         up_left_list = np.empty([(len(x_range) - 1) * (len(y_range) - 1), 2], dtype=np.int32)
         n = 0
         for y in range(len(y_range) - 1):
@@ -89,9 +89,9 @@ def AllLonLat(name, x0, y0, GCP, n):
                 n += 1
                 up_left_list[n - 1, 0] = y1  # up
                 up_left_list[n - 1, 1] = x1  # left
-                jo.Matrix_save(subLon, name + '-Longitude' + str(n), root)
-                jo.Matrix_save(subLat, name + 'Latitude' + str(n), root)
-        jo.Matrix_save(up_left_list, 'Upper Left Points of SubImages', root)
+                jo.Matrix_save(subLon, name + '-Longitude' + str(n), layer_root)
+                jo.Matrix_save(subLat, name + 'Latitude' + str(n), layer_root)
+        jo.Matrix_save(up_left_list, 'Upper Left Points of SubImages', layer_root)
     return None
 
 
@@ -223,8 +223,7 @@ def NewSigmaNaught5(GCP, Sigma_layer, rows_grid, cols_grid):
         return sigmaT
 
     def Pre_Process():
-        b_root = 'D:/Academic/MPS/Internship/Data/cathes/GraphicMethod/BaseLayer_LL/'
-        upper_left_xy = jo.Matrix_load('Upper Left Points of SubImages', b_root)
+        upper_left_xy = jo.Matrix_load('Upper Left Points of SubImages', grid_root)
         xv, yv, lon_CP, lat_CP = GCP_Matrix(GCP)
         rows, cols = lon_CP.shape
         upleft = [(r, c) for r in range(rows - 1) for c in range(cols - 1)]
@@ -243,16 +242,16 @@ def NewSigmaNaught5(GCP, Sigma_layer, rows_grid, cols_grid):
         tri2 = np.array([[1, 1],
                          [1, 0],
                          [0, 1]])
-        return tri_list, P_1, P_2, P_3, x_unit, y_unit, tri1, tri2, upper_left_xy, b_root, xv, yv, lon_CP, lat_CP
+        return tri_list, P_1, P_2, P_3, x_unit, y_unit, tri1, tri2, upper_left_xy, xv, yv, lon_CP, lat_CP
 
 
-    tri_list, P_1, P_2, P_3, x_unit, y_unit, tri1, tri2, upper_left_xy, b_root, xv, yv, lon_CP, lat_CP = Pre_Process()
+    tri_list, P_1, P_2, P_3, x_unit, y_unit, tri1, tri2, upper_left_xy, xv, yv, lon_CP, lat_CP = Pre_Process()
     Sigma_New = np.empty([rows_grid, cols_grid], dtype=np.float32)
     for i in range(36):
         print('Grid Number:', i+1)
         st = time.time()
-        lon_arr = jo.Matrix_load('Base-Longitude_Sub' + str(i + 1), b_root)
-        lat_arr = jo.Matrix_load('Base-Latitude_Sub' + str(i + 1), b_root)
+        lon_arr = jo.Matrix_load('Base-Longitude_Sub' + str(i + 1), grid_root)
+        lat_arr = jo.Matrix_load('Base-Latitude_Sub' + str(i + 1), grid_root)
         up = upper_left_xy[i, 0]
         left = upper_left_xy[i, 1]
         lonMax, lonMin = lon_arr.max()+0.14, lon_arr.min()-0.14
@@ -266,7 +265,7 @@ def NewSigmaNaught5(GCP, Sigma_layer, rows_grid, cols_grid):
 
 
 
-def TryMerge(root = 'D:/Academic/MPS/Internship/Data/cathes/GraphicMethod/BaseLayer_LL/'):
+def TryMerge(root = grid_root):
     cp = np.load(root+'Upper Left Points of Subimages.npy')
     lat_name = 'Base-Latitude_Sub'
     lon_name = 'Base-Longitude_Sub'
@@ -289,7 +288,7 @@ def TryMerge(root = 'D:/Academic/MPS/Internship/Data/cathes/GraphicMethod/BaseLa
     return lon_grid, lat_grid
 
 
-def Line2Nodes(coastline, lon_arr, lat_arr, root='D:/Academic/MPS/Internship/Data/coastline/'):
+def Line2Nodes(coastline, lon_arr, lat_arr, root=coast_root):
 # coastline is a n:2 ndarray
 # lon_arr, lat_arr are the longitude and latitude data of the grid
     def EdgePoints(x1, x2, y1, y2):
@@ -392,7 +391,7 @@ def OneStepCoastline():
     lon_grid, lat_grid = TryMerge()
     coastXYZ = Lc.LoadCoastlineXYZ()
     Line2Nodes(coastXYZ, lon_grid, lat_grid)
-    line = np.load('D:/Academic/MPS/Internship/Data/coastline/Coastline in Grid.npy')
+    line = np.load(coast_root+'/Coastline in Grid.npy')
     return line
 
 
