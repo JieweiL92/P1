@@ -1,4 +1,4 @@
-import math, cv2
+import math, cv2, os
 import numpy as np
 
 def Display(dataset, r = 0.1, n = 0, mode = 'linear'):
@@ -67,4 +67,27 @@ def Distance(p0, coastline):
     d = list(map(lambda x, y: np.sqrt((x - px) ** 2 + (y - py) ** 2), coastline[:, 1], coastline[:, 0]))
     return max(d)
 
+
+def ReadSubImage(n, root = 'D:/Academic/MPS/Internship/Data/cathes/GraphicMethod/'):
+    file_list = os.listdir(root)
+    file_list2 = [t for t in file_list if t.find('Sub'+str(n))>0]
+    file_list2.sort()
+    data= []
+    for chr in file_list2:
+        temp = np.load(root+chr)
+        data.append(temp)
+    Ma = np.array(data)
+    return Ma
+
+
+def Cal4Maps(data):
+    MeanMap = np.nanmean(data, axis=0, dtype=np.float32)
+    MedianMap = np.nanmedian(data, axis=0)
+    StdMap = np.nanstd(data, axis=0, dtype=np.float64)
+    PeakMap = np.nanmax(data, axis = 0) - np.nanmin(data, axis = 0)
+    return MeanMap, MedianMap, StdMap, PeakMap
+
+
+def Compare(dat, Mean, Median, Std):
+    img = (dat-Mean)/Mean
 
