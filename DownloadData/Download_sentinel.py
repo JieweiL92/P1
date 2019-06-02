@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
-import math
+import math, time
 import Download.Sentinel_Data as ds
 import Read_SentinelData.SentinelClass as rd
 
@@ -58,6 +58,24 @@ def DownloadData(products, api):
             api.download(t.uuid, directory_path = download_path)
         else:
             print('Product {} is not online.'.format(t.uuid))
+            # if n<len(products)-3:
+            #     for i in range(3):
+            #         api.download(products[n+i].uuid, directory_path= download_path)
+            #         print('Triger the next 3 products')
+            # else:
+            #     for i in range(n, len(products)):
+            #         api.download(products[i].uuid, directory_path= download_path)
+            #         print('Triger the rest of products')
+            pd = True
+            api.download(t.uuid, directory_path=download_path)
+            # api.download(products[n+1].uuid, directory_path= download_path)
+            while pd:
+                inn = api.get_product_odata(t.uuid)
+                if inn['Online']:
+                    pd = False
+                time.sleep(900)
+                print('Waiting for the retrieve process.')
+            api.download(t.uuid, directory_path= download_path)
             Off_List.append(t)
     return Off_List
 

@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime, timedelta
+import scipy.stats as stat
+import netCDF4 as ncdf
 
 def ReadUpwellingIndex():
     root = 'F:/Jiewei/Upwelling Index(MontereyBay)/'
@@ -20,7 +22,7 @@ def ReadUpwellingIndex():
     along_shore = [y if y!=-9999 else np.nan for x in a_list for y in x]
     return time_list, off_shore, along_shore
 
-def ReadWindData(path):
+def ReadBuoyWindData(path):
     fid = open(path)
     title = fid.readline()
     line = fid.readline()
@@ -34,6 +36,18 @@ def ReadWindData(path):
     wind_direction = np.where(wind_direction>360, np.nan, wind_direction)
     fid.close()
     return times, wind_direction, wind_speed
+
+def ReadCDSData(path, date_list):
+    st = datetime(1900,1,1)
+    dt = timedelta(hours = 1)
+    dataset = ncdf.Dataset(path)
+    time_list = dataset.variables['time'][:].data*dt + st
+    lon_arr = dataset.variables['longitude'][:].data
+    lat_arr = dataset.variables['latitude'][:].data
+
+    pass
+
+
 
 
 if __name__ == '__main__':

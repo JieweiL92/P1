@@ -3,6 +3,7 @@ import DownloadData.Download_sentinel as dds
 from datetime import datetime
 import netCDF4 as ncdf
 
+# from 2017-01-01 to
 def DownloadAllERA5(path):
     c = cdsapi.Client()
     c.retrieve(
@@ -74,5 +75,5 @@ def DownloadERA5(datelist, path):
 if __name__ == '__main__':
     root = 'F:/Jiewei/CDS/'
     dl = dds.DateList(datetime(2019,5,25))
-    DownloadERA5(dl[0:3], root)
-
+    # DownloadERA5(dl[0:3], root)
+    DownloadAllERA5(root)
