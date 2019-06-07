@@ -246,7 +246,7 @@ def NewSigmaNaught5(GCP, Sigma_layer, rows_grid, cols_grid):
 
 
     tri_list, P_1, P_2, P_3, x_unit, y_unit, tri1, tri2, upper_left_xy, xv, yv, lon_CP, lat_CP = Pre_Process()
-    Sigma_New = np.empty([rows_grid, cols_grid], dtype=np.float32)
+    Sigma_New = np.zeros([rows_grid, cols_grid], dtype=np.float32)
     for i in range(36):
         print('Grid Number:', i+1)
         st = time.time()
@@ -257,9 +257,10 @@ def NewSigmaNaught5(GCP, Sigma_layer, rows_grid, cols_grid):
         lonMax, lonMin = lon_arr.max()+0.14, lon_arr.min()-0.14
         latMax, latMin = lat_arr.max()+0.2, lat_arr.min()-0.2
         TriN, P1N, P2N, P3N, x_unitN, y_unitN = FilterTri(lonMin, lonMax, latMin, latMax)
-        s = EachRec(lon_arr, lat_arr)
-        rows, cols = s.shape
-        Sigma_New[up:up + rows, left:left + cols] = s
+        if len(TriN) != 0:
+            s = EachRec(lon_arr, lat_arr)
+            rows, cols = s.shape
+            Sigma_New[up:up + rows, left:left + cols] = s
         print('Time:', time.time()-st, 'sec')
     return Sigma_New
 

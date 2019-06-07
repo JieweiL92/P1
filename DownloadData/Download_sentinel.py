@@ -74,7 +74,7 @@ def DownloadData(products, api):
                 inn = api.get_product_odata(t.uuid)
                 if inn['Online']:
                     pd = False
-                time.sleep(900)
+                time.sleep(1200)
                 print('Waiting for the retrieve process.')
             api.download(t.uuid, directory_path= download_path)
             Off_List.append(t)

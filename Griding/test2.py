@@ -29,6 +29,26 @@ def HaveALook(r):
     return None
 
 
+
+def TryMerge(name, root):
+    cp = np.load(root+'Upper Left Points of Subimages.npy')
+    subname = name+'_Sub'
+    up, left = cp[-1,0], cp[-1,1]
+    arr_list = []
+    for i in range(9):
+        arr_list.append(np.load(root+ subname +str(i+1)+'.npy'))
+    arr = arr_list[-1]
+    rows, cols = arr.shape
+    rows, cols = rows+up, cols+left
+    arr = np.empty([rows, cols], dtype=np.float_)
+    for i in range(9):
+        sub_arr = arr_list[i]
+        up, left = cp[i, 0], cp[i, 1]
+        r,c =sub_arr.shape
+        arr[up:up + r, left:left + c] = sub_arr
+    return arr
+
+
 if __name__ == '__main__':
     # line = gm.OneStepCoastline()
     # print(line)

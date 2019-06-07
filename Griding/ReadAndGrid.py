@@ -82,6 +82,12 @@ if __name__ == '__main__':
     # ans = input('Where do save your Sentinel-1 data:')
     d = rd.SentinelData()
     d.Get_List(file_root)
-    [x0, y0] = FirstLayer(d.series[0], d.FList[0])
-    n = 1
+    # start from 20170216
+    # [x0, y0] = FirstLayer(d.series[2], d.FList[2])
+    # print(x0, y0)
+    x0, y0 = 2549, 1671
+    # change the ss to control the start file
+    ss = '20170312'
+    n = d.series.index(ss)+1
+    print(n)
     OtherLayer(x0, y0, d, n)
