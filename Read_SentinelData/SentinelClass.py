@@ -183,27 +183,54 @@ class Data_Level1(object):  # 单独一份 level1 数据
     def Get_Noise_Data(self):
         fid = ET.parse(self.__addr[2])  # No.n file and the calibration data [[c,m][]]
         f_root = fid.getroot()
-        AzimuthVectorList = f_root[2]
-        num = int(AzimuthVectorList.attrib['count'])
+        if f_root[1].tag.find('Range')>0:
+            AzimuthVectorList = f_root[2]
+            num = int(AzimuthVectorList.attrib['count'])
+            rows, cols = self.__DNs.shape
+            noise_arr = np.zeros([rows, cols], dtype=np.float32)
+            for i in range(num):
+                sub_dir = AzimuthVectorList[i]
+                c1, c2 = int(sub_dir[2].text), int(sub_dir[4].text)
+                lines = sub_dir[5].text
+                noises = sub_dir[6].text
+                line_num = rows - 1 - np.array(list(map(int, lines.split())))
+                noises_s = list(map(float, noises.split()))
+                lines = line_num.tolist()
+                lines.reverse()
+                noises_s.reverse()
+                for j in range(len(lines) - 1):
+                    y1, y2 = lines[j], lines[j + 1]
+                    v1, v2 = noises_s[j], noises_s[j + 1]
+                    for y in range(y1, y2 + 1):
+                        noise_arr[y, c1:c2 + 1] = ((y2 - y) * v1 + (y - y1) * v2) / (y2 - y1)
+            self.__noise = noise_arr
+        else:
+            VectorList = f_root[1]
+            line_nums, pixel_list, noise_list = [], [], []
+            for i in VectorList:
+                line_nums.append(int(i[1].text))
+                pixels = list(map(int, i[2].text.split()))
+                noises = list(map(float, i[3].text.split()))
+                pixel_list.append(pixels)
+                noise_list.append(noises)
+            rows, cols = self.__DNs.shape
+            noise_arr = np.zeros([rows, cols], dtype=np.float32)
+            l = noise_arr[0,:]
+            for i in range(len(VectorList)):
+                for t in range(len(pixel_list[i])-1):
+                    x1, x2 = pixel_list[i][t], pixel_list[i][t+1]
+                    y1, y2 = noise_list[i][t], noise_list[i][t+1]
+                    for xi in range(x1, x2+1):
+                        l[xi] = (x2 - xi) * y1 / (x2 - x1) + (xi - x1) * y2 / (x2 - x1)
+                noise_arr[line_nums[i],:] = l
+            for i in range(len(line_nums)-1):
+                y1, y2 = line_nums[i], line_nums[i+1]
+                for yi in range(y1+1, y2):
+                    y1_line, y2_line = noise_arr[y1, :], noise_arr[y2, :]
+                    noise_arr[yi, :] = (y2 - yi) * y1_line / (y2 - y1) + (yi - y1) * y2_line / (y2 - y1)
+            self.__noise = noise_arr
+        return None
 
-        rows, cols = self.__DNs.shape
-        noise_arr = np.zeros([rows, cols], dtype=np.float32)
-        for i in range(num):
-            sub_dir = AzimuthVectorList[i]
-            c1, c2 = int(sub_dir[2].text), int(sub_dir[4].text)
-            lines = sub_dir[5].text
-            noises = sub_dir[6].text
-            line_num = rows - 1 - np.array(list(map(int, lines.split())))
-            noises_s = list(map(float, noises.split()))
-            lines = line_num.tolist()
-            lines.reverse()
-            noises_s.reverse()
-            for j in range(len(lines) - 1):
-                y1, y2 = lines[j], lines[j + 1]
-                v1, v2 = noises_s[j], noises_s[j + 1]
-                for y in range(y1, y2 + 1):
-                    noise_arr[y, c1:c2 + 1] = ((y2 - y) * v1 + (y - y1) * v2) / (y2 - y1)
-        self.__noise = noise_arr
 
     def Get_Measure_Data(self):
         ds = gdal.Open(self.__addr[1])

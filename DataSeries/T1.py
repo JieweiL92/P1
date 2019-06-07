@@ -5,8 +5,8 @@ import scipy.stats as stat
 import netCDF4 as ncdf
 
 def ReadUpwellingIndex():
-    root = 'F:/Jiewei/Upwelling Index(MontereyBay)/'
-    fname = 'upwell36N122W.txt'
+    root = 'F:/Jiewei/Upwelling Index/'
+    fname = 'upwell42N125W.txt'
     fid = open(root+fname)
     line = fid.readline()
     while line.find('--------------')<0:
@@ -38,15 +38,20 @@ def ReadBuoyWindData(path):
     return times, wind_direction, wind_speed
 
 def ReadCDSData(path, date_list):
-    st = datetime(1900,1,1)
-    dt = timedelta(hours = 1)
+    # st = datetime(1900,1,1)
+    # dt = timedelta(hours = 1)
     dataset = ncdf.Dataset(path)
-    time_list = dataset.variables['time'][:].data*dt + st
+    # time_list = dataset.variables['time'][:].data*dt + st
     lon_arr = dataset.variables['longitude'][:].data
     lat_arr = dataset.variables['latitude'][:].data
-
-    pass
-
+    dl = (np.array(date_list) - datetime(2017,1,1))/24
+    ind14, ind15 = dl*2, dl*2+1
+    d14_u = [dataset.variables['u10'][:].data[i,:,:] for i in ind14]
+    d15_u = [dataset.variables['u10'][:].data[i,:,:] for i in ind15]
+    d14_v = [dataset.variables['v10'][:].data[i,:,:] for i in ind14]
+    d15_v = [dataset.variables['v10'][:].data[i,:,:] for i in ind15]
+    del dataset
+    return lon_arr, lat_arr, d14_u, d15_u, d14_v, d15_v
 
 
 

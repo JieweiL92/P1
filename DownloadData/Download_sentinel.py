@@ -2,12 +2,13 @@ from datetime import datetime, timedelta
 from sentinelsat import SentinelAPI, read_geojson, geojson_to_wkt
 import math, time
 import Download.Sentinel_Data as ds
-import Read_SentinelData.SentinelClass as rd
+
 
 
 footprint = ''      # WKT format
 orbit_circle = 1    # in 175
-download_path = 'F:/Jiewei/Sentinel-1/Level1-GRD-IW/WhiteCity/'
+# download_path = 'F:/Jiewei/Sentinel-1/Level1-GRD-IW/WhiteCity/'
+download_path = 'F:/Jiewei/Sentinel-1/Level2-OCN'
 
 westcoast = 'POLYGON((-124.32458920204549 46.43911834045062,-124.39597857281898 44.05214836263448,-124.89570416823345\
                         42.781768881082286,-124.32458920204549 41.32413925785548,-124.61014668513947 40.32477337122387,\

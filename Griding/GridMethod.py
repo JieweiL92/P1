@@ -10,9 +10,9 @@ import time
 from numba import jit
 
 dir = 'D:\\Academic\\MPS\\Internship\\Data\\Sentinel\\TEST'
-grid_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level 1/Grid'
-layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level 1/Layer'
-coast_root='D:/Academic/MPS/Internship/Data/coastline'
+grid_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Grid/'
+layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Layer/'
+coast_root='D:/Academic/MPS/Internship/Data/coastline/'
 
 def GCP_Matrix(data):
     dat = np.array(data)

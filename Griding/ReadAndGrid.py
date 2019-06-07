@@ -15,7 +15,8 @@ import time
 # apply delaunay triangulation-------------many small triangles
 # figure the
 
-layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level 1/Layer'
+layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Layer/'
+file_root = 'F:/Jiewei/Sentinel-1/Level1-GRD-IW/WhiteCity/'
 
 def FirstLayer(name, dir):
     dat = rd.Data_Level1(name, dir)
@@ -49,16 +50,13 @@ def FirstLayer(name, dir):
     return nx_lim, ny_lim
 
 
-def OtherLayer(B_xsize, B_ysize, dir):
-    d = rd.SentinelData()
-    d.Get_List(dir)
-    # for indice in range(len(d.series)):
-    for indice in [1]:
+def OtherLayer(B_xsize, B_ysize, d, n):
+    for indice in range(n, len(d.series)):
         temp = rd.Data_Level1(d.series[indice], d.FList[indice])
         temp.OneStep()
         GCP = temp.GCPs
-        SigmaNaught = temp.NRCS
-        name = 'Layer' + str(indice + 1) + '-' + d.series[indice]
+        SigmaNaught = temp.denoiseNRCS
+        name = 'Layer' + str(indice) + '-' + d.series[indice]
         del temp
         start = time.time()
         Sigma_N = gm.NewSigmaNaught5(GCP, SigmaNaught, B_ysize, B_xsize)
@@ -70,14 +68,20 @@ def OtherLayer(B_xsize, B_ysize, dir):
 
 
 if __name__ == '__main__':
-    name = '20190220'
-    calibratedpath = 'D:\\Academic\\MPS\\Internship\\Data\\Sentinel\\TEST\\S1A_IW_GRDH_1SDV_20190220T020703_20190220T020729_026007_02E5FB_31B6.SAFE\\annotation\\calibration\\calibration-s1a-iw-grd-vv-20190220t020703-20190220t020729-026007-02e5fb-001.xml'
-    measurepath = 'D:\\Academic\\MPS\\Internship\\Data\\Sentinel\\TEST\\S1A_IW_GRDH_1SDV_20190220T020703_20190220T020729_026007_02E5FB_31B6.SAFE\\measurement\\s1a-iw-grd-vv-20190220t020703-20190220t020729-026007-02e5fb-001.tiff'
-    noisepath = 'D:\\Academic\\MPS\\Internship\\Data\\Sentinel\\TEST\\S1A_IW_GRDH_1SDV_20190220T020703_20190220T020729_026007_02E5FB_31B6.SAFE\\annotation\\calibration\\noise-s1a-iw-grd-vv-20190220t020703-20190220t020729-026007-02e5fb-001.xml'
-    otherspath = 'D:\\Academic\\MPS\\Internship\\Data\\Sentinel\\TEST'
-
-    # [x0,y0] = FirstLayer(name, [calibratedpath, measurepath, noisepath])
-    # print(x0, y0)
-    x0 = 2528
-    y0 = 1702
-    OtherLayer(x0, y0, otherspath)
+    # name = '20190220'
+    # calibratedpath = 'D:\\Academic\\MPS\\Internship\\Data\\Sentinel\\TEST\\S1A_IW_GRDH_1SDV_20190220T020703_20190220T020729_026007_02E5FB_31B6.SAFE\\annotation\\calibration\\calibration-s1a-iw-grd-vv-20190220t020703-20190220t020729-026007-02e5fb-001.xml'
+    # measurepath = 'D:\\Academic\\MPS\\Internship\\Data\\Sentinel\\TEST\\S1A_IW_GRDH_1SDV_20190220T020703_20190220T020729_026007_02E5FB_31B6.SAFE\\measurement\\s1a-iw-grd-vv-20190220t020703-20190220t020729-026007-02e5fb-001.tiff'
+    # noisepath = 'D:\\Academic\\MPS\\Internship\\Data\\Sentinel\\TEST\\S1A_IW_GRDH_1SDV_20190220T020703_20190220T020729_026007_02E5FB_31B6.SAFE\\annotation\\calibration\\noise-s1a-iw-grd-vv-20190220t020703-20190220t020729-026007-02e5fb-001.xml'
+    # otherspath = 'D:\\Academic\\MPS\\Internship\\Data\\Sentinel\\TEST'
+    #
+    # # [x0,y0] = FirstLayer(name, [calibratedpath, measurepath, noisepath])
+    # # print(x0, y0)
+    # x0 = 2528
+    # y0 = 1702
+    # OtherLayer(x0, y0, otherspath)
+    # ans = input('Where do save your Sentinel-1 data:')
+    d = rd.SentinelData()
+    d.Get_List(file_root)
+    [x0, y0] = FirstLayer(d.series[0], d.FList[0])
+    n = 1
+    OtherLayer(x0, y0, d, n)

@@ -1,9 +1,9 @@
 import math, cv2, os
 import numpy as np
 
-grid_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level 1/Grid'
-layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level 1/Layer'
-coast_root='D:/Academic/MPS/Internship/Data/coastline'
+grid_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Grid/'
+layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Layer/'
+coast_root='D:/Academic/MPS/Internship/Data/coastline/'
 
 def Display(dataset, r = 0.1, n = 0, mode = 'linear'):
     if len(dataset.shape) == 2:

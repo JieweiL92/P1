@@ -22,7 +22,7 @@ def HaveALook(r):
     t.Get_List(root=path)
     temp = rd.Data_Level1(t.series[ans-1], t.FList[ans-1])
     temp.OneStep()
-    NRCS = temp.denoiseNRCS
+    NRCS = temp.NRCS
     del temp, t
     data = Lc.Resize_SigmaNaught(NRCS, 30)
     Lc.Display(data, r=r)
@@ -32,7 +32,7 @@ def HaveALook(r):
 if __name__ == '__main__':
     # line = gm.OneStepCoastline()
     # print(line)
-    HaveALook(0.02)
+    HaveALook(0.1)
 
 
 
