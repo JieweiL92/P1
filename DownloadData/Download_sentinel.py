@@ -34,7 +34,6 @@ def DateList(d):
     if hasattr(d, 'date'):
         origin_time= d.date()
     time_step = timedelta(days=12)
-
     n = math.ceil((origin_time - First_day).days/12)
     L1 = [n-i-1 for i in range(n)]
     d1 = [origin_time-time_step*i for i in L1]
@@ -59,17 +58,8 @@ def DownloadData(products, api):
             api.download(t.uuid, directory_path = download_path)
         else:
             print('Product {} is not online.'.format(t.uuid))
-            # if n<len(products)-3:
-            #     for i in range(3):
-            #         api.download(products[n+i].uuid, directory_path= download_path)
-            #         print('Triger the next 3 products')
-            # else:
-            #     for i in range(n, len(products)):
-            #         api.download(products[i].uuid, directory_path= download_path)
-            #         print('Triger the rest of products')
             pd = True
             api.download(t.uuid, directory_path=download_path)
-            # api.download(products[n+1].uuid, directory_path= download_path)
             while pd:
                 inn = api.get_product_odata(t.uuid)
                 if inn['Online']:

@@ -52,7 +52,7 @@ class SentinelData(object):
         C = '\\annotation\\calibration\\'
         M = '\\measurement\\'
         for s in root_list:
-            if s.find('1SDV') >= 0 and s.find('SAFE') >= 0:
+            if (s.find('1SDV') >= 0 or s.find('1SSV')>=0) and s.find('SAFE') >= 0:
                 s0 = root + '\\' + s
                 s1 = s[17:25]
                 C1 = s0 + C
@@ -275,6 +275,8 @@ class Data_Level1(object):  # 单独一份 level1 数据
         if self.__direction == 'Descending':
             self.__NRCS = np.fliplr(self.__NRCS)
             self.__denoiseNRCS = np.fliplr(self.__denoiseNRCS)
+            self.__DNs = np.fliplr(self.__DNs)
+            self.__GCPs = np.fliplr(self.GCPs)
         return None
 
     def OneStep(self):

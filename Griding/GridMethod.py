@@ -1,9 +1,8 @@
 from functools import partial
 from multiprocessing import Pool
-
-import Griding.Coordinates as cod
-import Griding.IOcontrol as jo
-import Griding.LayerCalculator as Lc
+import Internship_RSMAS.Griding.Coordinates as cod
+import Internship_RSMAS.Griding.IOcontrol as jo
+import Internship_RSMAS.Griding.LayerCalculator as Lc
 import math
 import numpy as np
 import time
@@ -266,7 +265,7 @@ def NewSigmaNaught5(GCP, Sigma_layer, rows_grid, cols_grid):
 
 
 
-def TryMerge(root = grid_root):
+def MergeGridLL(root = grid_root):
     cp = np.load(root+'Upper Left Points of Subimages.npy')
     lat_name = 'Base-Latitude_Sub'
     lon_name = 'Base-Longitude_Sub'
@@ -389,11 +388,27 @@ def Line2Nodes(coastline, lon_arr, lat_arr, root=coast_root):
 
 
 def OneStepCoastline():
-    lon_grid, lat_grid = TryMerge()
+    lon_grid, lat_grid = MergeGridLL()
     coastXYZ = Lc.LoadCoastlineXYZ()
     Line2Nodes(coastXYZ, lon_grid, lat_grid)
     line = np.load(coast_root+'/Coastline in Grid.npy')
     return line
+
+
+def Merge(name, root = layer_root):
+    cp = np.load(root + 'Upper Left Points of Subimages.npy')
+    up, left = cp[-1, 0], cp[-1, 1]
+    arr_list = []
+    for i in range(9):
+        arr_list.append(np.load(root+name+'_Sub'+str(i+1)+'.npy'))
+    rows, cols = arr_list[-1].shape
+    rows, cols = rows+up, cols+left
+    arr = np.empty([rows, cols], dtype=np.float32)
+    for i in range(9):
+        up, left = cp[i, 0], cp[i, 1]
+        r, c = arr_list[i].shape
+        arr[up:up+r, left:left+c] = arr_list[i]
+    return arr
 
 
 

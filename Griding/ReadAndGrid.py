@@ -1,11 +1,12 @@
-import Griding.Coordinates as cod
+import Internship_RSMAS.Griding.Coordinates as cod
 # import Griding.Method2 as md2
-import Griding.GridMethod as gm
-import Griding.IOcontrol as jo
-import Griding.LayerCalculator as Lc
-import Read_SentinelData.SentinelClass as rd
+import Internship_RSMAS.Griding.GridMethod as gm
+import Internship_RSMAS.Griding.IOcontrol as jo
+import Internship_RSMAS.Griding.LayerCalculator as Lc
+import Internship_RSMAS.Read_SentinelData.SentinelClass as rd
 import numpy as np
-import time
+from datetime import datetime
+import time, os
 
 
 # use first layer (base) as standard grid and attain its lon and lat
@@ -15,6 +16,7 @@ import time
 # apply delaunay triangulation-------------many small triangles
 # figure the
 
+level1_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/'
 layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Layer/'
 file_root = 'F:/Jiewei/Sentinel-1/Level1-GRD-IW/WhiteCity/'
 
@@ -67,27 +69,56 @@ def OtherLayer(B_xsize, B_ysize, d, n):
     return None
 
 
+def GenerateMatrix(rows = 1671, cols = 2549):
+    file_list = os.listdir(layer_root)
+    file_set = set()
+    for s in file_list:
+        n = s.find('-')
+        if n>0:
+            file_set.add(s[:n+9])
+    dicts = {}
+    for name in file_set:
+        arr = gm.Merge(name)
+        date_str = name[-8:]
+        dates = datetime.strptime(date_str, '%Y%m%d')
+        dicts[dates] = arr
+    data = np.empty([len(file_set), rows, cols], dtype=np.float32)
+    datelist = sorted(dicts.keys())
+    n = 0
+    for s in datelist:
+        data[n,:,:] = dicts[s]
+        n += 1
+    return data, datelist
+
+
+
 if __name__ == '__main__':
-    # name = '20190220'
-    # calibratedpath = 'D:\\Academic\\MPS\\Internship\\Data\\Sentinel\\TEST\\S1A_IW_GRDH_1SDV_20190220T020703_20190220T020729_026007_02E5FB_31B6.SAFE\\annotation\\calibration\\calibration-s1a-iw-grd-vv-20190220t020703-20190220t020729-026007-02e5fb-001.xml'
-    # measurepath = 'D:\\Academic\\MPS\\Internship\\Data\\Sentinel\\TEST\\S1A_IW_GRDH_1SDV_20190220T020703_20190220T020729_026007_02E5FB_31B6.SAFE\\measurement\\s1a-iw-grd-vv-20190220t020703-20190220t020729-026007-02e5fb-001.tiff'
-    # noisepath = 'D:\\Academic\\MPS\\Internship\\Data\\Sentinel\\TEST\\S1A_IW_GRDH_1SDV_20190220T020703_20190220T020729_026007_02E5FB_31B6.SAFE\\annotation\\calibration\\noise-s1a-iw-grd-vv-20190220t020703-20190220t020729-026007-02e5fb-001.xml'
-    # otherspath = 'D:\\Academic\\MPS\\Internship\\Data\\Sentinel\\TEST'
-    #
-    # # [x0,y0] = FirstLayer(name, [calibratedpath, measurepath, noisepath])
-    # # print(x0, y0)
-    # x0 = 2528
-    # y0 = 1702
-    # OtherLayer(x0, y0, otherspath)
-    # ans = input('Where do save your Sentinel-1 data:')
-    d = rd.SentinelData()
-    d.Get_List(file_root)
-    # start from 20170216
+
+    # # Grid
+    # d = rd.SentinelData()
+    # d.Get_List(file_root)
+    # # start from 20170216
     # [x0, y0] = FirstLayer(d.series[2], d.FList[2])
-    # print(x0, y0)
-    x0, y0 = 2549, 1671
-    # change the ss to control the start file
-    ss = '20170312'
-    n = d.series.index(ss)+1
-    print(n)
-    OtherLayer(x0, y0, d, n)
+    # # x0, y0 = 2549, 1671
+    # OtherLayer(x0, y0, d, 0)
+
+
+    # Merge and Overlap
+    data, date_list = GenerateMatrix()
+    # t = Lc.Resize_SigmaNaught(data[0,:,:], 2)
+    # ynew, xnew = t.shape
+    # resize_data = np.empty([73, ynew, xnew], dtype=np.float32)
+    # resize_data[0,:,:] = t
+    # for i in range(1,73):
+    #     print(i)
+    #     t = Lc.Resize_SigmaNaught(data[i,:,:], 2)
+    #     resize_data[i,:,:] = t
+    # np.save(level1_root+'data_resize.npy', resize_data)
+    np.save(level1_root+'data.npy', data)
+    del data
+    with open(level1_root+'date_list(matrix).txt', 'w') as fid:
+        for dts in date_list:
+            s = dts.strftime('%Y%m%d')
+            fid.write(s)
+            fid.write('\n')
+    print('finished')

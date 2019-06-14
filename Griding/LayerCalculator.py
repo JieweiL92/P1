@@ -1,5 +1,6 @@
 import math, cv2, os
 import numpy as np
+import matplotlib.pyplot as plt
 
 grid_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Grid/'
 layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Layer/'
@@ -23,11 +24,7 @@ def Display(dataset, r = 0.1, n = 0, mode = 'linear'):
     coef = 255 / (max_d - min_d)
     data_new = data - min_d
     img = np.around(data_new*coef).astype(np.uint8)
-    rows, cols = data.shape
-    cv2.resizeWindow('Image1', cols, rows)
-    cv2.imshow('Image1', img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    plt.imshow(img, cmap='gray')
     return None
 
 
@@ -84,7 +81,9 @@ def ReadSubImage(n, root = layer_root):
     return Ma
 
 
-def Cal4Maps(data):
+def Cal4Maps(data, expc=[0,2]):
+    for i in expc:
+        data[i,:,:] = np.nan
     MeanMap = np.nanmean(data, axis=0, dtype=np.float32)
     MedianMap = np.nanmedian(data, axis=0)
     StdMap = np.nanstd(data, axis=0, dtype=np.float64)
