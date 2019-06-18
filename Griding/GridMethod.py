@@ -3,21 +3,21 @@ from multiprocessing import Pool
 import Internship_RSMAS.Griding.Coordinates as cod
 import Internship_RSMAS.Griding.IOcontrol as jo
 import Internship_RSMAS.Griding.LayerCalculator as Lc
-import math
+import math, time
 import numpy as np
-import time
+from scipy.interpolate import griddata as grd
 from numba import jit
 
 dir = 'D:\\Academic\\MPS\\Internship\\Data\\Sentinel\\TEST'
 grid_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Grid/'
 layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Layer/'
 coast_root='D:/Academic/MPS/Internship/Data/coastline/'
+temp_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Temp/'
 
 def GCP_Matrix(data):
     dat = np.array(data)
     x = dat[:, 0].astype(np.int32)
     y = dat[:, 1].astype(np.int32)
-    y = np.max(y) - y
     lon = dat[:, 2].astype(np.float_)
     lat = dat[:, 3].astype(np.float_)
     row_num = x.tolist().count(0)
@@ -26,9 +26,14 @@ def GCP_Matrix(data):
     y = y.reshape([row_num, col_num])
     lon = lon.reshape([row_num, col_num])
     lat = lat.reshape([row_num, col_num])
-    lon = np.flip(lon, 0)
-    lat = np.flip(lat, 0)
-    y = np.flip(y, 0)
+    if x[0,0]>x[0,-1]:
+        x = np.fliplr(x)
+        lon = np.fliplr(lon)
+        lat = np.fliplr(lat)
+    if y[0,0]>y[-1,0]:
+        y = np.flipud(y)
+        lon = np.flipud(lon)
+        lat = np.flipud(lat)
     x_vec = x[0, :]
     y_vec = y[:, 0]
     return x_vec, y_vec, lon, lat
@@ -67,31 +72,49 @@ def AllLonLat(name, x0, y0, GCP, n):
 
     print('It takes %f seconds to calculate the Longitude and Latitude' % (time.time() - st))
     if name == 'Base':
-        Lon_Arr = Lc.Resize_LL(Lon_Arr, n)
-        Lat_Arr = Lc.Resize_LL(Lat_Arr, n)
-        [subLon, pt_list] = cod.N_sub(6, Lon_Arr)
-        [subLat, pt_list] = cod.N_sub(6, Lat_Arr)
+        # Lon_Arr = Lc.Resize_LL(Lon_Arr, n)
+        # Lat_Arr = Lc.Resize_LL(Lat_Arr, n)
+        # [subLon, pt_list] = cod.N_sub(6, Lon_Arr)
+        # [subLat, pt_list] = cod.N_sub(6, Lat_Arr)
+        # del Lon_Arr, Lat_Arr
+        # st = time.time()
+        # jo.Matrix_save(pt_list, 'Upper Left Points of SubImages', grid_root)
+        # jo.NMatrix_save(subLon, 'Base-Longitude', grid_root)
+        # jo.NMatrix_save(subLat, 'Base-Latitude', grid_root)
+        # print('It takes %f seconds to save LL data' % (time.time() - st))
+        Lon_a = GridClass()
+        Lon_a.Resize(Lon_Arr, n)
+        Lat_a = GridClass()
+        Lat_a.Resize(Lat_Arr, n)
         del Lon_Arr, Lat_Arr
-        st = time.time()
-        jo.Matrix_save(pt_list, 'Upper Left Points of SubImages', grid_root)
-        jo.NMatrix_save(subLon, 'Base-Longitude', grid_root)
-        jo.NMatrix_save(subLat, 'Base-Latitude', grid_root)
-        print('It takes %f seconds to save LL data' % (time.time() - st))
+        jo.Matrix_save(Lon_a.surrounding, 'GridCell-Longitude', grid_root)
+        jo.Matrix_save(Lat_a.surrounding, 'GridCell-Latitude', grid_root)
+        jo.Matrix_save(Lon_a.position, 'Position-Longitude', grid_root)
+        jo.Matrix_save(Lat_a.position, 'Position-Latitude', grid_root)
+        return None
     else:
-        up_left_list = np.empty([(len(x_range) - 1) * (len(y_range) - 1), 2], dtype=np.int32)
-        n = 0
-        for y in range(len(y_range) - 1):
-            for x in range(len(x_range) - 1):
-                x1, x2 = x_range[x], x_range[x + 1]
-                y1, y2 = y_range[y], y_range[y + 1]
-                subLon, subLat = Lon_Arr[y1:y2 + 1, x1:x2 + 1], Lat_Arr[y1:y2 + 1, x1:x2 + 1]
-                n += 1
-                up_left_list[n - 1, 0] = y1  # up
-                up_left_list[n - 1, 1] = x1  # left
-                jo.Matrix_save(subLon, name + '-Longitude' + str(n), layer_root)
-                jo.Matrix_save(subLat, name + 'Latitude' + str(n), layer_root)
-        jo.Matrix_save(up_left_list, 'Upper Left Points of SubImages', layer_root)
-    return None
+        Lon_a = GridClass()
+        Lon_a.Resize(Lon_Arr, 5)
+        del Lon_Arr
+        Lat_a = GridClass()
+        Lat_a.Resize(Lat_Arr, 5)
+        del Lat_Arr
+        sub_lon, upleft = cod.N_sub(n, Lon_a.position)
+        jo.NMatrix_save(sub_lon,'Longitude', temp_root)
+        jo.Matrix_save(upleft, 'Upper Left Points of LL', temp_root)
+        del sub_lon, Lon_a
+        sub_lat, upleft = cod.N_sub(n, Lat_a.position)
+        jo.NMatrix_save(sub_lat,'Latitude', temp_root)
+        del sub_lat, Lat_a
+        #
+        # sub_lon, upleft = cod.N_sub(n, Lon_Arr)
+        # jo.NMatrix_save(sub_lon,'Longitude', temp_root)
+        # jo.Matrix_save(upleft, 'Upper Left Points of LL', temp_root)
+        # del sub_lon, Lon_Arr
+        # sub_lat, upleft = cod.N_sub(n, Lat_Arr)
+        # jo.NMatrix_save(sub_lat,'Latitude', temp_root)
+        # del sub_lat, Lat_Arr
+        return None
 
 
 @jit(nopython=True, parallel=True)
@@ -134,7 +157,7 @@ def EachPoint(P_1, P_2, P_3, p):
             break
     return result, w1, u1, v1
 
-
+@jit(nopython=True, parallel=True)
 def IsInPolygon(p_list, p0):
     P1 = np.array(p_list) - np.array(p0)
     Pt = np.empty_like(P1)
@@ -347,34 +370,6 @@ def Line2Nodes(coastline, lon_arr, lat_arr, root=coast_root):
         ind = d.index(min(d))
         return rc[ind]
 
-    # def NextPoints(referencePC, pn):
-    #     x1, x2 = referencePC[1]-10, referencePC[1]+10
-    #     y1, y2 = referencePC[0]-10, referencePC[0]+10
-    #     if x2>cols-1:
-    #         x2 = cols-1
-    #     if x1<0:
-    #         x1 = 0
-    #     if y2>rows-1:
-    #         y2 = rows-1
-    #     if y1<0:
-    #         y1 = 0
-    #     pp = EdgePoints(x1, x2, y1, y2)
-    #     if IsInPolygon(pp, pn):
-    #         temp = Nearest(pn, x1, x2, y1, y2)
-    #     else:
-    #         x1, x2 = referencePC[1] - 100, referencePC[1] + 100
-    #         y1, y2 = referencePC[0] - 100, referencePC[0] + 100
-    #         if x2 > cols - 1:
-    #             x2 = cols - 1
-    #         if x1 < 0:
-    #             x1 = 0
-    #         if y2 > rows - 1:
-    #             y2 = rows - 1
-    #         if y1 < 0:
-    #             y1 = 0
-    #         temp = Nearest(pn, x1, x2, y1, y2)
-    #     return temp
-
     rows, cols = lon_arr.shape
     Surrounding = EdgePoints(0, cols-1, 0, rows-1)
     func1 = partial(IsInPolygon, Surrounding)
@@ -410,6 +405,163 @@ def Merge(name, root = layer_root):
         arr[up:up+r, left:left+c] = arr_list[i]
     return arr
 
+
+class GridClass(object):
+    def __init__(self):
+        self.__surrounding = 0
+        self.__position = 0
+
+    @property
+    def surrounding(self):
+        return self.__surrounding
+    @property
+    def position(self):
+        return self.__position
+
+
+    def Resize(self, data, n):
+        rows, cols = data.shape
+        nr, nc = math.floor(rows / n), math.floor(cols / n)
+        dat = data[(rows - nr * n):rows, (cols - nc * n):cols]
+        temp = np.empty([nr+1, nc+1], dtype = np.float_)
+        temp[:nr, :nc] = dat[::n, ::n]
+        temp[nr, :nc] = dat[-1, ::n]
+        temp[:nr, nc] = dat[::n, -1]
+        temp[-1, -1] = dat[-1, -1]
+        self.__surrounding = temp
+        temp = [[(dat[r * n, c * n] + dat[r * n, (c + 1) * n - 1] + dat[(r + 1) * n - 1, c * n] + dat[
+            (r + 1) * n - 1, (c + 1) * n - 1]) / 4 for c in range(nc)] for r in range(nr)]
+        self.__position = np.array(temp, dtype=np.float_)
+        return None
+
+
+
+def GridSigmaNaught(Sigma):
+    def Preprocess_1():
+        lon_grid = np.load(grid_root+'GridCell-Longitude.npy')       # longitude of the grid cell(4 points)
+        lat_grid = np.load(grid_root+'GridCell-Latitude.npy')        # latitude of the grid cell(4 points)
+        upper_left_xy = jo.Matrix_load('Upper Left Points of LL', temp_root)
+        rows, cols = lon_grid.shape
+        rows, cols = rows-1, cols-1
+        Pixel_num = np.zeros([rows, cols], dtype= np.uint16)
+        Pixel_value = np.zeros([rows, cols], dtype = np.float32)
+        del rows, cols
+        return lon_grid, lat_grid, Pixel_num, Pixel_value, upper_left_xy
+
+    def Preprocess_2(n):
+        up, left = upper_left_xy[n-1, 0], upper_left_xy[n-1, 1]
+        Lon_arr = np.load(temp_root + 'Longitude_Sub' + str(n) + '.npy')
+        Lat_arr = np.load(temp_root + 'Latitude_Sub' + str(n) + '.npy')
+        ro, co = Lon_arr.shape
+        rc = [(r, c) for r in range(ro) for c in range(co)]
+        LL = [[Lon_arr[r, c], Lat_arr[r, c]] for r,c in rc]                  # longitude and latitude of new image (in a list)
+        del Lon_arr, Lat_arr
+        values = [Sigma[r+up, c+left] for r,c in rc]                         # sigma naught value of new image (in a list)
+        return LL, values
+    #
+    #
+    # def EdgePoints(x1, x2, y1, y2):
+    #     Plist = [(lon_grid[y1, x], lat_grid[y1, x]) for x in range(x1, x2)]
+    #     Ptemp = [(lon_grid[y, x2], lat_grid[y, x2]) for y in range(y1, y2)]
+    #     Plist.extend(Ptemp)
+    #     Ptemp = [(lon_grid[y2, x], lat_grid[y2, x]) for x in range(x2, x1,-1)]
+    #     Plist.extend(Ptemp)
+    #     Ptemp = [(lon_grid[y, x1], lat_grid[y, x1]) for y in range(y2, y1,-1)]
+    #     Plist.extend(Ptemp)
+    #     return Plist # clockwise point list in the grid cell array
+    #
+    # def PointInRect2(p0):
+    #     x1, x2, y1, y2 = 0, cols - 1, 0, rows - 1
+    #     flag = False
+    #     while not flag:
+    #         if x2 - x1 <= 1 and y2 - y1 <= 1:
+    #             flag = True
+    #         else:
+    #             if x2 - x1 > 1:
+    #                 x_un = math.ceil((x2 - x1) / 3)
+    #                 x_m1 = x1 + x_un
+    #                 x_m2 = x_m1 + x_un
+    #                 px1 = EdgePoints(x1, x_m1, y1, y2)
+    #                 px2 = EdgePoints(x_m1, x_m2, y1, y2)
+    #                 if IsInPolygon(px1, p0):
+    #                     x2 = x_m1
+    #                 elif IsInPolygon(px2, p0):
+    #                     x1, x2 = x_m1, x_m2
+    #                 else:
+    #                     x1 = x_m2
+    #                 if x2 == x1:
+    #                     x1 -= 1
+    #             if y2 - y1 > 1:
+    #                 y_un = math.ceil((y2 - y1) / 3)
+    #                 y_m1 = y1 + y_un
+    #                 y_m2 = y_m1 + y_un
+    #                 py1 = EdgePoints(x1, x2, y1, y_m1)
+    #                 py2 = EdgePoints(x2, x2, y_m1, y_m2)
+    #                 if IsInPolygon(py1, p0):
+    #                     y2 = y_m1
+    #                 elif IsInPolygon(py2, p0):
+    #                     y1, y2 = y_m1, y_m2
+    #                 else:
+    #                     y1 = y_m2
+    #                 if y2 == y1:
+    #                     y1 -= 1
+    #     return x1, x2, y1, y2
+
+    def LL2XY(lon_grid, lat_grid, LL):
+        rows, cols = lon_grid.shape
+        rc = [(r, c) for r in range(rows) for c in range(cols)]
+        points = np.array([[lon_grid[r, c], lat_grid[r, c]] for r, c in rc])
+        value_x = np.array([c for r in range(rows) for c in range(cols)])
+        value_y = np.array([r for r in range(rows) for c in range(cols)])
+        x_position = grd(points, value_x, LL)
+        y_position = grd(points, value_y, LL)
+        return x_position, y_position
+
+    lon_grid, lat_grid, Pixel_num, Pixel_value, upper_left_xy = Preprocess_1()
+    rows, cols = lon_grid.shape
+    # WholeArea = EdgePoints(0, cols - 1, 0, rows - 1)
+    for t in range(9):
+        print('The %d time is '% t)
+        st1 = time.time()
+        LL, values = Preprocess_2(t+1)
+        print('It takes %f seconds to do Preprocess2'%(time.time()-st1))
+        # update the LL and values arrays
+        # st2 = time.time()
+        # func1 = partial(IsInPolygon, WholeArea)
+        # po = Pool()
+        # TF = po.map(func1, LL)
+        # po.close()
+        # po.join()
+        # # TF = list(map(func1, LL))
+        # New_LL = [LL[i] for i in range(len(TF)) if TF[i]]
+        # New_values = [values[i] for i in range(len(TF)) if TF[i]]
+        # LL, values = New_LL, New_values
+        # del New_LL, New_values
+        # print('It takes %f seconds to update'%(time.time()-st2))
+        # st2 = time.time()
+        # po = Pool()
+        # Cell_Ind = np.array(po.map(PointInRect2, LL))      # return a n*4 array
+        # po.close()
+        # po.join()
+        # print('It takes %f seconds to find the grid cell' % (time.time() - st2))
+        # for t1 in range(Cell_Ind.shape[0]):
+        #     x, y = Cell_Ind[t1, 0], Cell_Ind[t1, 2]
+        #     Pixel_value[y, x] = (Pixel_value[y, x] * Pixel_num[y, x] + values[t1])/(Pixel_num[y, x]+1)
+        #     Pixel_num[y, x] += 1
+        # print('It takes %f seconds to deal with 1 part'%(time.time()-st1))
+        x_p, y_p = LL2XY(lon_grid, lat_grid, LL)
+        x_p[np.isnan(x_p)] = -20
+        y_p[np.isnan(y_p)] = -20
+        x_p = np.floor(x_p).astype(np.int16)
+        y_p = np.floor(y_p).astype(np.int16)
+        print(len(x_p))
+        for ii in range(len(values)):
+            x, y = x_p[ii], y_p[ii]
+            if x>=0 and y>=0:
+                Pixel_value[y, x] = (Pixel_value[y, x] * Pixel_num[y, x] + values[ii]) / (Pixel_num[y, x] + 1)
+                Pixel_num[y, x] += 1
+
+    return Pixel_value, Pixel_num
 
 
 if __name__ == '__main__':

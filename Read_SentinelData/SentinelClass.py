@@ -275,8 +275,16 @@ class Data_Level1(object):  # 单独一份 level1 数据
         if self.__direction == 'Descending':
             self.__NRCS = np.fliplr(self.__NRCS)
             self.__denoiseNRCS = np.fliplr(self.__denoiseNRCS)
-            self.__DNs = np.fliplr(self.__DNs)
-            self.__GCPs = np.fliplr(self.GCPs)
+            # self.__DNs = np.fliplr(self.__DNs)
+            xlist = [cps[0] for cps in self.__GCPs]
+            max_x = max(xlist)
+            for cps in self.GCPs:
+                cps[0] = max_x - cps[0]
+        else:
+            ylist = [cps[1] for cps in self.__GCPs]
+            max_y = max(ylist)
+            for cps in self.GCPs:
+                cps[1] = max_y - cps[1]
         return None
 
     def OneStep(self):

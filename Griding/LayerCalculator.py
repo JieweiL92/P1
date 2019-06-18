@@ -1,6 +1,7 @@
 import math, cv2, os
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy import signal
 
 grid_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Grid/'
 layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Layer/'
@@ -32,8 +33,14 @@ def Resize_SigmaNaught(dat, n):
     rows, cols = dat.shape
     nr, nc = math.floor(rows / n), math.floor(cols / n)
     dat = dat[(rows - nr * n):rows, (cols - nc * n):cols]
-    new_pic = [[np.nanmean(dat[r * n:(r + 1) * n, c * n:(c + 1) * n]) for c in range(nc)] for r in range(nr)]
-    new_pic = np.array(new_pic, dtype=np.float32)
+    # new_pic = [[np.nanmean(dat[r * n:(r + 1) * n, c * n:(c + 1) * n]) for c in range(nc)] for r in range(nr)]
+    # new_pic = np.array(new_pic).astype(np.float32)
+    dat[np.isnan(dat)] = 0
+    new_pic=[[dat[r * n:(r + 1) * n, c * n:(c + 1) * n].mean() for c in range(nc)] for r in range(nr)]
+    new_pic = np.array(new_pic).astype(np.float32)
+    # kernel = np.ones([n, n])/(n*n)
+    # img = signal.convolve(dat, kernel, mode='valid')
+    # new_pic=img[::n, ::n]
     return new_pic
 
 

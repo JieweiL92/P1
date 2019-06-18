@@ -1,12 +1,11 @@
 import Internship_RSMAS.Griding.Coordinates as cod
-# import Griding.Method2 as md2
 import Internship_RSMAS.Griding.GridMethod as gm
 import Internship_RSMAS.Griding.IOcontrol as jo
 import Internship_RSMAS.Griding.LayerCalculator as Lc
 import Internship_RSMAS.Read_SentinelData.SentinelClass as rd
 import numpy as np
 from datetime import datetime
-import time, os
+import time, os, math
 
 
 # use first layer (base) as standard grid and attain its lon and lat
@@ -18,6 +17,7 @@ import time, os
 
 level1_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/'
 layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Layer/'
+temp_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Temp/'
 file_root = 'F:/Jiewei/Sentinel-1/Level1-GRD-IW/WhiteCity/'
 
 def FirstLayer(name, dir):
@@ -41,13 +41,14 @@ def FirstLayer(name, dir):
         del x_limN, y_limN, SigmaN
 
     n = 10
-    SigmaNaught = Lc.Resize_SigmaNaught(SigmaNaught, n)
-    ny_lim, nx_lim = SigmaNaught.shape
-    [sub_image, pt_list] = cod.N_sub(3, SigmaNaught)
-    del SigmaNaught
-    jo.Matrix_save(pt_list, 'Upper Left Points of SubImages', layer_root)
-    jo.NMatrix_save(sub_image, 'BaseLayer', layer_root)
-    del sub_image
+    # SigmaNaught = Lc.Resize_SigmaNaught(SigmaNaught, n)
+    # ny_lim, nx_lim = SigmaNaught.shape
+    # [sub_image, pt_list] = cod.N_sub(3, SigmaNaught)
+    # del SigmaNaught
+    # jo.Matrix_save(pt_list, 'Upper Left Points of SubImages', layer_root)
+    # jo.NMatrix_save(sub_image, 'BaseLayer', layer_root)
+    # del sub_image
+    ny_lim, nx_lim = math.floor(y_lim / n), math.floor(x_lim / n)
     gm.AllLonLat('Base', x_lim, y_lim, GCP, n)
     return nx_lim, ny_lim
 
@@ -60,12 +61,18 @@ def OtherLayer(B_xsize, B_ysize, d, n):
         SigmaNaught = temp.denoiseNRCS
         name = 'Layer' + str(indice) + '-' + d.series[indice]
         del temp
+        y1, x1 = SigmaNaught.shape
+        # gm.AllLonLat(name, x1, y1, GCP, 3)
         start = time.time()
-        Sigma_N = gm.NewSigmaNaught5(GCP, SigmaNaught, B_ysize, B_xsize)
+        # Sigma_N = gm.NewSigmaNaught5(GCP, SigmaNaught, B_ysize, B_xsize)
+        # print('Time for resampling 1 SAR image:', (time.time()-start)/60, 'mins')
+        # del SigmaNaught, GCP
+        # [sub_image, pt_list] = cod.N_sub(3, Sigma_N)
+        # jo.NMatrix_save(sub_image, name, layer_root)
+        SigmaNaught = Lc.Resize_SigmaNaught(SigmaNaught, 5)
+        Sigma_N, nums_arr = gm.GridSigmaNaught(SigmaNaught)
         print('Time for resampling 1 SAR image:', (time.time()-start)/60, 'mins')
-        del SigmaNaught, GCP
-        [sub_image, pt_list] = cod.N_sub(3, Sigma_N)
-        jo.NMatrix_save(sub_image, name, layer_root)
+        jo.Matrix_save(Sigma_N, name, layer_root)
     return None
 
 
@@ -94,31 +101,31 @@ def GenerateMatrix(rows = 1671, cols = 2549):
 
 if __name__ == '__main__':
 
-    # # Grid
-    # d = rd.SentinelData()
-    # d.Get_List(file_root)
-    # # start from 20170216
+    # Grid
+    d = rd.SentinelData()
+    d.Get_List(file_root)
+    # start from 20170216
     # [x0, y0] = FirstLayer(d.series[2], d.FList[2])
-    # # x0, y0 = 2549, 1671
-    # OtherLayer(x0, y0, d, 0)
+    x0, y0 = 2549, 1671
+    OtherLayer(x0, y0, d, 0)
 
 
-    # Merge and Overlap
-    data, date_list = GenerateMatrix()
-    # t = Lc.Resize_SigmaNaught(data[0,:,:], 2)
-    # ynew, xnew = t.shape
-    # resize_data = np.empty([73, ynew, xnew], dtype=np.float32)
-    # resize_data[0,:,:] = t
-    # for i in range(1,73):
-    #     print(i)
-    #     t = Lc.Resize_SigmaNaught(data[i,:,:], 2)
-    #     resize_data[i,:,:] = t
-    # np.save(level1_root+'data_resize.npy', resize_data)
-    np.save(level1_root+'data.npy', data)
-    del data
-    with open(level1_root+'date_list(matrix).txt', 'w') as fid:
-        for dts in date_list:
-            s = dts.strftime('%Y%m%d')
-            fid.write(s)
-            fid.write('\n')
-    print('finished')
+    # # Merge and Overlap
+    # data, date_list = GenerateMatrix()
+    # # t = Lc.Resize_SigmaNaught(data[0,:,:], 2)
+    # # ynew, xnew = t.shape
+    # # resize_data = np.empty([73, ynew, xnew], dtype=np.float32)
+    # # resize_data[0,:,:] = t
+    # # for i in range(1,73):
+    # #     print(i)
+    # #     t = Lc.Resize_SigmaNaught(data[i,:,:], 2)
+    # #     resize_data[i,:,:] = t
+    # # np.save(level1_root+'data_resize.npy', resize_data)
+    # np.save(level1_root+'data.npy', data)
+    # del data
+    # with open(level1_root+'date_list(matrix).txt', 'w') as fid:
+    #     for dts in date_list:
+    #         s = dts.strftime('%Y%m%d')
+    #         fid.write(s)
+    #         fid.write('\n')
+    # print('finished')
