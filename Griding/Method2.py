@@ -1,20 +1,97 @@
 from functools import partial
-
-import Griding.LayerCalculator as Lc
-import math
+from multiprocessing import Pool
+import Internship_RSMAS.Griding.Coordinates as cod
+import Internship_RSMAS.Griding.IOcontrol as jo
+import math, time
+# from memory_profiler import profile
 import numpy as np
-import time
-from Griding import Coordinates as cod
-from Griding import IOcontrol as jo
 from numba import jit
-from scipy import sparse
+
+dir = 'D:\\Academic\\MPS\\Internship\\Data\\Sentinel\\TEST'
+grid_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Grid/'
+layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Layer/'
+coast_root='D:/Academic/MPS/Internship/Data/coastline/'
+temp_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Temp/'
+tempN = 4
+
+
+class grid_cell(object):
+    def __init__(self):
+        self.__surrounding = 0
+        self.__position = 0
+
+    @property
+    def surrounding(self):
+        return self.__surrounding
+    @property
+    def position(self):
+        return self.__position
+
+
+    def Resize(self, data, n):
+        rows, cols = data.shape
+        nr, nc = math.floor(rows / n), math.floor(cols / n)
+        dat = data[0:n*nr, 0:n*nc]
+        temp = np.zeros([nr + 1, nc + 1], dtype=np.float_)
+        upleft = dat[::n, ::n]
+        upright = dat[::n, n-1::n]
+        lowleft = dat[n-1::n, ::n]
+        lowright = dat[n-1::n, n-1::n]
+        temp[0, 0] = upleft[0, 0]
+        temp[0, -1] = upright[0, -1]
+        temp[-1, 0] = lowleft[-1, 0]
+        temp[-1, -1] = lowright[-1, -1]
+        for r in range(1, nr):
+            temp[r, 0] = (upleft[r, 0]+lowleft[r-1, 0]) / 2
+            temp[r, -1] = (upright[r, -1] + lowright[r - 1, -1]) / 2
+        for c in range(1, nc):
+            temp[0, c] = (upleft[0, c]+lowleft[0, c-1]) / 2
+            temp[-1, c] = (lowleft[-1, c]+lowright[-1, c-1]) / 2
+        for r in range(1, nr):
+            for c in range(1, nc):
+                temp[r, c] = (upleft[r, c] + upright[r, c-1] + lowleft[r-1, c] + lowright[r-1, c-1])/4
+        self.__surrounding = temp
+        self.__position = (upleft+upright+lowleft+lowright)/4
+        return None
+
+
+
+
+class uniform_grid(object):
+    def __init__(self):
+        self.__v = 8.996e-4         # length in degrees
+        self.__h = 1.211e-3         # length in degrees
+        self.__size = (2101, 2820)  # pixel numbers
+        self.__lon_min = -125.8370
+        self.__lat_min = 41.3856
+
+    @property
+    def size(self):
+        return self.__size
+    @property
+    def lon_min(self):
+        return self.__lon_min
+    @property
+    def lat_min(self):
+        return self.__lat_min
+    @property
+    def v(self):
+        return self.__v
+    @property
+    def h(self):
+        return self.__h
+
+    def MakeGrid(self):
+        rows, cols = self.__size
+        self.num = np.zeros([rows, cols], dtype=np.uint16)
+        self.img = np.zeros([rows, cols], dtype=np.float32)
+        return None
 
 
 def GCP_Matrix(data):
     dat = np.array(data)
     x = dat[:, 0].astype(np.int32)
     y = dat[:, 1].astype(np.int32)
-    y = np.max(y) - y
     lon = dat[:, 2].astype(np.float_)
     lat = dat[:, 3].astype(np.float_)
     row_num = x.tolist().count(0)
@@ -23,9 +100,14 @@ def GCP_Matrix(data):
     y = y.reshape([row_num, col_num])
     lon = lon.reshape([row_num, col_num])
     lat = lat.reshape([row_num, col_num])
-    lon = np.flip(lon, 0)
-    lat = np.flip(lat, 0)
-    y = np.flip(y, 0)
+    if x[0,0]>x[0,-1]:
+        x = np.fliplr(x)
+        lon = np.fliplr(lon)
+        lat = np.fliplr(lat)
+    if y[0,0]>y[-1,0]:
+        y = np.flipud(y)
+        lon = np.flipud(lon)
+        lat = np.flipud(lat)
     x_vec = x[0, :]
     y_vec = y[:, 0]
     return x_vec, y_vec, lon, lat
@@ -61,288 +143,131 @@ def AllLonLat(name, x0, y0, GCP, n):
     [x_range, y_range, lon, lat] = GCP_Matrix(GCP)
     st = time.time()
     [Lon_Arr, Lat_Arr] = Travel(x_range, y_range, lon, lat)
-
     print('It takes %f seconds to calculate the Longitude and Latitude' % (time.time() - st))
-    if name == 'Base':
-        root = 'D:/Academic/MPS/Internship/Data/cathes/GraphicMethod/BaseLayer_LL/'
-        Lon_Arr = Lc.Resize_LL(Lon_Arr, n)
-        Lat_Arr = Lc.Resize_LL(Lat_Arr, n)
-        [subLon, pt_list] = cod.N_sub(6, Lon_Arr)
-        [subLat, pt_list] = cod.N_sub(6, Lat_Arr)
-        del Lon_Arr, Lat_Arr
+    if n!=1:
         st = time.time()
-        jo.Matrix_save(pt_list, 'Upper Left Points of SubImages', root)
-        jo.NMatrix_save(subLon, 'Base-Longitude', root)
-        jo.NMatrix_save(subLat, 'Base-Latitude', root)
-        print('It takes %f seconds to save LL data' % (time.time() - st))
-    else:
-        root = 'D:/Academic/MPS/Internship/Data/cathes/GraphicMethod/Temp/'
-        up_left_list = np.empty([(len(x_range) - 1) * (len(y_range) - 1), 2], dtype=np.int32)
-        n = 0
-        for y in range(len(y_range) - 1):
-            for x in range(len(x_range) - 1):
-                x1, x2 = x_range[x], x_range[x + 1]
-                y1, y2 = y_range[y], y_range[y + 1]
-                subLon, subLat = Lon_Arr[y1:y2 + 1, x1:x2 + 1], Lat_Arr[y1:y2 + 1, x1:x2 + 1]
-                n += 1
-                up_left_list[n - 1, 0] = y1  # up
-                up_left_list[n - 1, 1] = x1  # left
-                jo.Matrix_save(subLon, name + '-Longitude' + str(n), root)
-                jo.Matrix_save(subLat, name + 'Latitude' + str(n), root)
-        jo.Matrix_save(up_left_list, 'Upper Left Points of SubImages', root)
+        Lon_a = grid_cell()
+        Lon_a.Resize(Lon_Arr, n)
+        Lon_Arr = Lon_a.position
+        Lat_a = grid_cell()
+        Lat_a.Resize(Lat_Arr, n)
+        Lat_Arr = Lat_a.position
+        del Lon_a, Lat_a
+        print('It takes %f seconds to resize Longitude and Latitude' % (time.time() - st))
+    elif name == 'extract':
+        np.save(layer_root+'Longitude.npy', Lon_Arr)
+        np.save(layer_root+'Latitude.npy', Lat_Arr)
+
+    st = time.time()
+    Grids = uniform_grid()
+    Grids.MakeGrid()
+    Lon_Arr -= Grids.lon_min
+    Lon_Arr /= Grids.h
+    Lon_Arr = np.floor(Lon_Arr).astype(np.int16)
+    Lat_Arr -= Grids.lat_min
+    Lat_Arr /= Grids.v
+    Lat_Arr = np.floor(Lat_Arr).astype(np.int16)
+    rows, cols = Grids.size
+    Lat_Arr = rows-1-Lat_Arr
+    sub_lon, upleft = cod.N_sub(tempN, Lon_Arr)
+    for iii in range(len(sub_lon)):
+        sub_lon[iii] = sub_lon[iii].reshape(-1)
+    jo.NMatrix_save(sub_lon, 'Longitude', temp_root)
+    jo.Matrix_save(upleft, 'Upper Left Points of LL', temp_root)
+    del sub_lon, Lon_Arr
+    sub_lat, upleft = cod.N_sub(tempN, Lat_Arr)
+    for iii in range(len(sub_lat)):
+        sub_lat[iii] = sub_lat[iii].reshape(-1)
+    jo.NMatrix_save(sub_lat, 'Latitude', temp_root)
+    del sub_lat, Lat_Arr
+    print('It takes %f seconds to save Longitude and Latitude\n' % (time.time() - st))
     return None
 
 
-@jit(nopython=True, parallel=True)
-def minus(p1, p2):
-    return [p1[0] - p2[0], p1[1] - p2[1]]
 
 
-@jit(nopython=True, parallel=True)
-def CrossProduct(p1, p2):
-    return (p1[0] * p2[1] - p1[1] * p2[0])
+class parallelogram_grid(object):
+    def __init__(self):
+        self.__v = 8.996e-4         # length in degrees
+        self.__h = 1.211e-3         # length in degrees
+        self.__size = (2101, 2820)
+        self.__lon_min = -125.8370
+        self.__lat_min = 41.3856
+        self.__hup = 1.2338e-3
+        self.__hdown = 1.1973e-3
 
+    @property
+    def size(self):
+        return self.__size
 
-@jit(nopython=True, parallel=True)
-def dot(p1, p2):
-    return (p1[0] * p2[0] + p1[1] * p2[1])
+    def MakeGrid(self):
+        rows, cols = self.__size
+        self.num = np.zeros([rows, cols], dtype=np.uint16)
+        self.img = np.zeros([rows, cols], dtype=np.float32)
+        return None
 
-
-@jit
-def IsInRect(p, pA, pB, pC, pD):
-    flag = False
-    l_AB = CrossProduct(minus(pB, pA), minus(p, pA))
-    l_BC = CrossProduct(minus(pC, pB), minus(p, pB))
-    l_CD = CrossProduct(minus(pD, pC), minus(p, pC))
-    l_DA = CrossProduct(minus(pA, pD), minus(p, pD))
-    if (l_AB > 0 and l_BC > 0 and l_CD > 0 and l_DA > 0) or \
-            (l_AB < 0 and l_BC < 0 and l_CD < 0 and l_DA < 0) or (l_AB * l_BC * l_CD * l_DA == 0):
-        flag = True
-    return flag
 
 
 @jit(nopython=True, parallel=True)
-def minus_without_jit(p1, p2):
-    return [p1[0] - p2[0], p1[1] - p2[1]]
+def Paste(r1, c1, v1, img, num):
+    Pixel_value, Pixel_num = img.copy(), num.copy()
+    for ind in range(len(c1)):
+        Pixel_num[r1[ind], c1[ind]] += 1
+        Pixel_value[r1[ind], c1[ind]] += v1[ind]
+    return Pixel_value, Pixel_num
 
+# @profile
+def IterateParts(rows, cols, n):
+    C = np.load(temp_root + 'Longitude_Sub' + str(n+1) + '.npy')
+    C_ind= np.where((C >= 0) & (C < cols))[0].astype(np.int32)
+    R = np.load(temp_root + 'Latitude_Sub' + str(n+1) + '.npy')
+    R_ind = np.where((R >= 0) & (R < rows))[0].astype(np.int32)
+    T_ind = R_ind[np.isin(R_ind, C_ind)]
+    del R_ind, C_ind
+    r1, c1 = R[T_ind], C[T_ind]
+    del R, C
+    V = np.load(temp_root + 'SigmaNaught_Sub' + str(n+1) + '.npy').reshape(-1)
+    v1 = V[T_ind]
+    del V, T_ind
+    return r1, c1, v1
 
-# delete the xp outside the GCP grid
-def TFlist(dat):
-    if dat[0] < 0:
-        return False
-    else:
-        return True
-
-
-def BarycentricCoordinate(p, p1, p2, p3):
-    vp = minus_without_jit(p, p1)
-    vb = minus_without_jit(p2, p1)
-    vc = minus_without_jit(p3, p1)
-    u_det = np.linalg.det(np.array([[vp[0], vc[0]],
-                                    [vp[1], vc[1]]]))
-    v_det = np.linalg.det(np.array([[vb[0], vp[0]],
-                                    [vb[1], vp[1]]]))
-    A_det = np.linalg.det(np.array([[vb[0], vc[0]],
-                                    [vb[1], vc[1]]]))
-    u = u_det / A_det
-    v = v_det / A_det
-    w = 1 - u - v
-    return w, u, v
-
-
-def NewSigmaNaught4(GCP, Sigma_layer, rows_grid, cols_grid):
-    def FindRect(arr1, arr2, p0):
-
-        def Divide3(t1, t2):
-            if t2 - t1 == 1:
-                return t1, t2, 0, 0
-            else:
-                unit_t = math.ceil((t2 - t1) / 3)
-                t_m1 = t1 + unit_t
-                t_m2 = t_m1 + unit_t
-                return t1, t_m1, t_m2, t2
-
-        def Tranfer(x1, x2, y1, y2):
-            p1 = [arr1[y1, x1], arr2[y1, x1]]
-            p2 = [arr1[y1, x2], arr2[y1, x2]]
-            p3 = [arr1[y2, x2], arr2[y2, x2]]
-            p4 = [arr1[y2, x1], arr2[y2, x1]]
-            return p1, p2, p3, p4
-
-        def SearchRect(p, x1, x2, y1, y2):
-            flag = True
-            x0, y0 = x1, y1
-            while flag:
-                if x2 - x1 == 1 and y2 - y1 == 1:
-                    x0, y0 = x1, y1
-                    flag = False
-                else:
-                    x_mid = math.ceil((x1 + x2) / 2)
-                    y_mid = math.ceil((y1 + y2) / 2)
-                    sub_rec = [[x1, x_mid, y1, y_mid],
-                               [x_mid, x2, y1, y_mid],
-                               [x1, x_mid, y_mid, y2],
-                               [x_mid, x2, y_mid, y2]]
-                    del_set = set()
-                    if y2 == y_mid:
-                        del_set.add(2)
-                        del_set.add(3)
-                    if x2 == x_mid:
-                        del_set.add(1)
-                        del_set.add(3)
-                    del_list = list(del_set)
-                    del_list.sort(reverse=True)
-                    for a in del_list:
-                        sub_rec.pop(a)
-                    for r in sub_rec:
-                        p1, p2, p3, p4 = Tranfer(r[0], r[1], r[2], r[3])
-                        if IsInRect(p, p1, p2, p3, p4):
-                            x1, x2, y1, y2 = r[0], r[1], r[2], r[3]
-                            break
-            return x0, y0
-
-        def SearchRect3(p, x1, x2, y1, y2):
-            flag = True
-            xx1, xx2, yy1, yy2 = x1, x2, y1, y2
-            x0, y0 = x1, y1
-            while flag:
-                if xx2 - xx1 == 1 and yy2 - yy1 == 1:
-                    x0, y0 = xx1, yy1
-                    flag = False
-                else:
-                    a1, a_m1, a_m2, a2 = Divide3(xx1, xx2)
-                    if a2 == 0:
-                        xx1, xx2 = a1, a_m1
-                    else:
-                        p1, p2, p3, p4 = Tranfer(a1, a_m1, yy1, yy2)
-                        p5, p6, p7, p8 = Tranfer(a_m1, a_m2, yy1, yy2)
-                        if IsInRect(p, p1, p2, p3, p4):
-                            xx1, xx2 = a1, a_m1
-                        elif IsInRect(p, p5, p6, p7, p8):
-                            xx1, xx2 = a_m1, a_m2
-                        else:
-                            xx1, xx2 = a_m2, a2
-
-                    b1, b_m1, b_m2, b2 = Divide3(yy1, yy2)
-                    if b2 == 0:
-                        yy1, yy2 = b1, b_m1
-                    else:
-                        p1, p2, p3, p4 = Tranfer(xx1, xx2, b1, b_m1)
-                        p5, p6, p7, p8 = Tranfer(xx1, xx2, b_m1, b_m2)
-                        if IsInRect(p, p1, p2, p3, p4):
-                            yy1, yy2 = b1, b_m1
-                        elif IsInRect(p, p5, p6, p7, p8):
-                            yy1, yy2 = b_m1, b_m2
-                        else:
-                            yy1, yy2 = b_m2, b2
-
-            return x0, y0
-
-        x1, y1 = 0, 0
-        y2, x2 = arr1.shape
-        x2 -= 1
-        y2 -= 1
-        p1, p2, p3, p4 = Tranfer(x1, x2, y1, y2)
-        if IsInRect(p0, p1, p2, p3, p4):
-            left, up = SearchRect(p0, x1, x2, y1, y2)
-            return left, up
+def GridLL_SigmaNaught(mode = 'uniform'):
+    def Preprocess():
+        upper_left_xy = jo.Matrix_load('Upper Left Points of LL', temp_root)
+        if mode == 'uniform':
+            Grids = uniform_grid()
         else:
-            return -10, 10
+            Grids = parallelogram_grid()
+        Grids.MakeGrid()
+        LonMin, LatMin = Grids.lon_min, Grids.lat_min
+        h, v = Grids.h, Grids.v
+        rows, cols = Grids.size
+        return upper_left_xy, Grids, h, v, LonMin, LatMin, rows, cols
 
-    def EachRec(lon_grid, lat_grid):
-        nonlocal Sigma_layer  # upper_left_xy, lon_CP, lat_CP, dist_xy, dist_LL
-        rows, cols = lon_grid.shape
-        rc_list = [(r, c) for r in range(rows) for c in range(cols)]
-        P = [[lon_grid[r, c], lat_grid[r, c]] for r, c in rc_list]
-        Func = partial(FindRect, lon_CP, lat_CP)
 
-        st1 = time.time()
-        xy_GCP = list(map(Func, P))
-        flg = list(map(TFlist, xy_GCP))
-        print(time.time() - st1, 'seconds')
-        # refresh the points, delete the useless points
-        rc_list = np.array([rc_list[rci] for rci in range(len(flg)) if flg[rci]])
-        xy_GCP = [xy_GCP[rci] for rci in range(len(xy_GCP)) if flg[rci]]
+    st = time.time()
+    upper_left_xy, Grids, h, v, LonMin, LatMin, rows, cols = Preprocess()
+    Pn0 = np.zeros_like(Grids.num)
+    Pv0 = np.zeros_like(Grids.img)
+    st1 = time.time()
+    print('Preprocess:', st1-st, 'sec')
+    func1 = partial(IterateParts, rows, cols)
+    po = Pool(5)
+    rcv = po.map(func1, range(tempN**2))
+    po.close()
+    po.join()
+    st2 = time.time()
+    print('Multiprocess:', st2-st1, 'sec')
+    for i in range(tempN**2):
+        r1, c1, v1 = rcv.pop(0)
+        Pixel_value, Pixel_num = Paste(r1, c1, v1, Grids.img, Grids.num)
+        Pv0 += Pixel_value
+        Pn0 += Pixel_num
+    st3 = time.time()
+    print('Overlay:', st3- st2, 'sec')
+    Pixel_num = Pn0
+    Pixel_num[Pixel_num == 0] = 1
+    Grids.img = Pv0/Pixel_num
+    Grids.num = Pn0
+    return Grids.img, Grids.num
 
-        # get x,y value of the node in the new image's frame---x_new, y_new
-        xy_unit = np.array([dist_xy[str(yp) + ',' + str(xp)] for xp, yp in xy_GCP])
-        P_1, P_2, P_3 = [dist_LL[str(yp) + ',' + str(xp)][0] for xp, yp in xy_GCP], [dist_LL[str(yp) + ',' + str(xp)][1]
-                                                                                     for xp, yp in xy_GCP], [
-                            dist_LL[str(yp) + ',' + str(xp)][2] for xp, yp in xy_GCP]
-        coef = np.array(list(map(BarycentricCoordinate, P, P_1, P_2, P_3)))
-        del P_1, P_2, P_3, P
-
-        x_new = coef[:, 1] * xy_unit[:, 0] + np.array([xv[xp] for xp, yp in xy_GCP])
-        y_new = coef[:, 2] * xy_unit[:, 1] + np.array([yv[yp] for xp, yp in xy_GCP])
-        x0, y0 = np.array(list(map(math.floor, x_new))), np.array(list(map(math.floor, y_new)))
-        x_t, y_t = x_new - x0, y_new - y0
-        P = [[y_t[t], x_t[t]] for t in range(len(x0))]
-        tri_num = list(map(math.floor, x_t + y_t))
-        P_1, P_2, P_3 = [tri_list[int(t)][0] for t in tri_num], [tri_list[int(t)][1] for t in tri_num], [
-            tri_list[int(t)][2] for t in tri_num]
-        s_list = np.array(
-            [[Sigma_layer[y0[t], x0[t]], Sigma_layer[y0[t], x0[t] + 1], Sigma_layer[y0[t] + 1, x0[t]]] for t in
-             range(len(xy_GCP))])
-        del x0, y0, x_t, y_t, x_new, y_new, tri_num, xy_unit, xy_GCP
-
-        coef = np.array(list(map(BarycentricCoordinate, P, P_1, P_2, P_3)))
-        SigmaValue = (coef * s_list).sum(1)
-        del P, P_3, P_2, P_1, s_list, coef
-        grid_s = sparse.coo_matrix((SigmaValue, (rc_list[:, 0], rc_list[:, 1])), shape=(rows, cols))
-        grid_s = grid_s.toarray()
-        return grid_s
-
-    b_root = 'D:/Academic/MPS/Internship/Data/cathes/GraphicMethod/BaseLayer_LL/'
-    upper_left_xy = jo.Matrix_load('Upper Left Points of SubImages', b_root)
-    xv, yv, lon_CP, lat_CP = GCP_Matrix(GCP)
-
-    dist_LL = {}  # item: 3 points list (y,x) (y,x+1) (y+1,x)
-    dist_xy = {}  # item: length in x direction, length in y direction
-    for r in range(len(yv) - 1):
-        for c in range(len(xv) - 1):
-            dist_LL[str(r) + ',' + str(c)] = [[lon_CP[r, c], lat_CP[r, c]],
-                                              [lon_CP[r, c + 1], lat_CP[r, c + 1]],
-                                              [lon_CP[r + 1, c], lat_CP[r + 1, c]]]
-            dist_xy[str(r) + ',' + str(c)] = [xv[c + 1] - xv[c], yv[r + 1] - yv[r]]
-
-    # tri_list = [[0, 1, 3], [1, 2, 3]]
-    tri_list = [[[0, 0], [0, 1], [1, 0]],
-                [[0, 1], [1, 1], [1, 0]]]
-    Sigma_New = np.empty([rows_grid, cols_grid], dtype=np.float32)
-    for i in range(36):
-        lon_arr = jo.Matrix_load('Base-Longitude_Sub' + str(i + 1), b_root)
-        lat_arr = jo.Matrix_load('Base-Latitude_Sub' + str(i + 1), b_root)
-        up = upper_left_xy[i, 0]
-        left = upper_left_xy[i, 1]
-        st = time.time()
-        print('grid: ', i + 1)
-        sub_grid = EachRec(lon_arr, lat_arr)
-        print('time: ', time.time() - st, ' seconds\n')
-        rows, cols = sub_grid.shape
-        Sigma_New[up:up + rows, left:left + cols] = sub_grid
-
-        # for r in range(rows):
-        #     for c in range(cols):
-        #         real_x, real_y = left+c, up+r             # the xy position in the grid
-        #         p = [lon_arr[r,c], lat_arr[r,c]]          # lon lat of the node
-        #         xp, yp = FindRect(p, lon_CP, lat_CP)      # xy position in the GCP matrix
-        #         if xp>=0:
-        #             p1, p2, p3 = dist_LL[str(yp)+','+str(xp)]
-        #             x_unit, y_unit = dist_xy[str(yp)+','+str(xp)]
-        #             [w, u, v] = BarycentricCoordinate(p, p1, p2, p3)
-        #             x_new = u*x_unit + xv[xp]                 # x value of the node in the new image's frame
-        #             y_new = v*y_unit + yv[yp]                 # y value of the node in the new image's frame
-        #             x0, y0 = math.floor(x_new), math.floor(y_new)
-        #             x_t = x_new - x0
-        #             y_t = y_new - y0
-        #             tri_num = 0
-        #             if x_t + y_t > 1:
-        #                 tri_num = 1
-        #             s_list = [Sigma_layer[y0, x0], Sigma_layer[y0, x0+1], Sigma_layer[y0+1, x0+1], Sigma_layer[y0+1, x0]]
-        #             a, b, c = tri_list[tri_num]
-        #             [w, u, v] = BarycentricCoordinate([y_t, x_t], pt_list[a], pt_list[b], pt_list[c])
-        #             Sigma_New[real_y, real_x] = w*s_list[a] + u*s_list[b] + v*s_list[c]
-        #         else:
-        #             Sigma_New[real_y, real_x] = np.nan
-
-    return Sigma_New

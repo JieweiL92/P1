@@ -56,11 +56,4 @@ def ReadCDSData(path):
 
 
 if __name__ == '__main__':
-    Tseries, off_shore, along_shore = ReadUpwellingIndex()
-    st = Tseries.index(datetime(2017,1,1))
-    x = np.array(Tseries[st:])
-    y1 = np.array(off_shore[st:])
-    y2 = np.array(along_shore[st:])
-    plt.plot(x, y1, 'r')
-    plt.plot(x, y2, 'b')
-    plt.show()
+    pass

@@ -243,6 +243,16 @@ class Data_Level1(object):  # 单独一份 level1 数据
             tempA = [p.GCPPixel, p.GCPLine, p.GCPX, p.GCPY]  # [x,y,lon,lat]  [ImX, ImY, lon, lat]
             arr1_append(tempA)  # world lat (N)
         self.__GCPs = arr1
+        if self.__direction == 'Descending':
+            xlist = [cps[0] for cps in self.__GCPs]
+            max_x = max(xlist)
+            for cps in self.GCPs:
+                cps[0] = max_x - cps[0]
+        else:
+            ylist = [cps[1] for cps in self.__GCPs]
+            max_y = max(ylist)
+            for cps in self.GCPs:
+                cps[1] = max_y - cps[1]
 
     def Check_Data(self, arr):  # return True of False
         first = arr[0]
@@ -257,7 +267,8 @@ class Data_Level1(object):  # 单独一份 level1 数据
         return Pd
 
     def CalNRCS(self):  # require to obtain measure and calibrated data first
-        Mat = self.__DNs.astype('float32')
+        Mat = self.__DNs.astype(np.float32)
+        self.__DNs = 0
         sigmaA_Range = np.zeros(self.__PixelRange[-1] + 1)
         for i in range(len(self.__PixelRange) - 1):
             x1, x2 = self.__PixelRange[i], self.__PixelRange[i + 1]
@@ -267,24 +278,14 @@ class Data_Level1(object):  # 单独一份 level1 数据
         sigmaA_Range[-1] = self.__SigmaA[-1]
         Mat = (Mat / sigmaA_Range) ** 2
         self.__NRCS = Mat.astype(np.float32)
-        self.__noise = self.__noise / (sigmaA_Range * sigmaA_Range)
-        Mat = Mat - self.__noise
-        self.__denoiseNRCS = Mat.astype(np.float32)
-        self.__denoiseNRCS = np.where(self.__denoiseNRCS>0, self.__denoiseNRCS, 0)
         del Mat
+        self.__noise = self.__noise / (sigmaA_Range * sigmaA_Range)
+        self.__denoiseNRCS = self.__NRCS - self.__noise
+        self.__noise = 0
+        self.__denoiseNRCS = np.where(self.__denoiseNRCS>0, self.__denoiseNRCS, 0).astype(np.float32)
         if self.__direction == 'Descending':
             self.__NRCS = np.fliplr(self.__NRCS)
             self.__denoiseNRCS = np.fliplr(self.__denoiseNRCS)
-            # self.__DNs = np.fliplr(self.__DNs)
-            xlist = [cps[0] for cps in self.__GCPs]
-            max_x = max(xlist)
-            for cps in self.GCPs:
-                cps[0] = max_x - cps[0]
-        else:
-            ylist = [cps[1] for cps in self.__GCPs]
-            max_y = max(ylist)
-            for cps in self.GCPs:
-                cps[1] = max_y - cps[1]
         return None
 
     def OneStep(self):
@@ -300,17 +301,8 @@ class Data_Level1(object):  # 单独一份 level1 数据
         print('Calibrate Data:', st1 - st, 'seconds')
         print('Measurement:', st2 - st1, 'seconds')
         print('Noise Data:', st3 - st2, 'seconds')
-        print('Calculate NRCS:', st4 - st3, 'seconds')
+        print('Calculate NRCS:', st4 - st3, 'seconds\n')
 
-    def LUTWriter(self, root='D:/Academic/MPS/Internship/Data/Sentinel/Level 1/Look up table'):
-        with open(root + '/LUT' + self.__name + '.csv', 'w') as f:
-            f_csv = csv.writer(f)
-            f_csv.writerows([self.__PixelRange, self.__SigmaA])
-
-    def GCPWriter(self, root='D:/Academic/MPS/Internship/Data/Sentinel/Level 1/Ground Control Point'):
-        with open(root + '/GCP' + self.__name + '.csv', 'w') as f:
-            f_csv = csv.writer(f)
-            f_csv.writerows(self.__GCPs)
 
 
 class Data_Level2(object):

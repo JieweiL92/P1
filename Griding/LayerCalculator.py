@@ -7,6 +7,28 @@ grid_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Grid/'
 layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Layer/'
 coast_root='D:/Academic/MPS/Internship/Data/coastline/'
 
+
+class ImagePlot(object):
+    def __init__(self, data):
+        self.__size = data.shape
+        self.factor = 1
+        self.__ma = np.ma.array(data, mask = np.isnan(data))
+        self.max = self.__ma.max()
+        self.min = self.__ma.min()
+
+    @property
+    def size(self):
+        return self.__size
+
+    @property
+    def ma(self):
+        return self.__ma
+
+    # def display(self, max = None, min = None, n = self.factor):
+    #     pass
+
+
+
 def Display(dataset, r = 0.1, n = 0, mode = 'linear'):
     if len(dataset.shape) == 2:
         data = dataset
@@ -29,28 +51,30 @@ def Display(dataset, r = 0.1, n = 0, mode = 'linear'):
     return None
 
 
-def Resize_SigmaNaught(dat, n):
-    rows, cols = dat.shape
+def Resize_SigmaNaught(data, n):
+    rows, cols = data.shape
     nr, nc = math.floor(rows / n), math.floor(cols / n)
-    dat = dat[(rows - nr * n):rows, (cols - nc * n):cols]
+    dat = data[0:n*nr, 0:n*nc]
     # new_pic = [[np.nanmean(dat[r * n:(r + 1) * n, c * n:(c + 1) * n]) for c in range(nc)] for r in range(nr)]
     # new_pic = np.array(new_pic).astype(np.float32)
     dat[np.isnan(dat)] = 0
     new_pic=[[dat[r * n:(r + 1) * n, c * n:(c + 1) * n].mean() for c in range(nc)] for r in range(nr)]
     new_pic = np.array(new_pic).astype(np.float32)
-    # kernel = np.ones([n, n])/(n*n)
-    # img = signal.convolve(dat, kernel, mode='valid')
-    # new_pic=img[::n, ::n]
     return new_pic
 
 
-def Resize_LL(dat, n):
-    rows, cols = dat.shape
+def Resize_LL(data, n):
+    rows, cols = data.shape
     nr, nc = math.floor(rows / n), math.floor(cols / n)
-    dat = dat[(rows - nr * n):rows, (cols - nc * n):cols]
-    new_LL = [[(dat[r * n, c * n] + dat[r * n, (c + 1) * n - 1] + dat[(r + 1) * n - 1, c * n] + dat[
-        (r + 1) * n - 1, (c + 1) * n - 1]) / 4 for c in range(nc)] for r in range(nr)]
-    new_LL = np.array(new_LL, dtype=np.float_)
+    dat = data[0:n*nr, 0:n*nc]
+    upleft = dat[::n, ::n]
+    upright = dat[::n, n - 1::n]
+    lowleft = dat[n - 1::n, ::n]
+    lowright = dat[n - 1::n, n-1::n]
+    # new_LL = [[(dat[r * n, c * n] + dat[r * n, (c + 1) * n - 1] + dat[(r + 1) * n - 1, c * n] + dat[
+    #     (r + 1) * n - 1, (c + 1) * n - 1]) / 4 for c in range(nc)] for r in range(nr)]
+    # new_LL = np.array(new_LL, dtype=np.float_)
+    new_LL = (upleft+upright+lowleft+lowright)/4
     return new_LL
 
 
