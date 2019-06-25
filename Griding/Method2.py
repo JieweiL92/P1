@@ -7,7 +7,7 @@ import math, time
 import numpy as np
 from numba import jit
 
-dir = 'D:\\Academic\\MPS\\Internship\\Data\\Sentinel\\TEST'
+level1_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/'
 grid_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Grid/'
 layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Layer/'
 coast_root='D:/Academic/MPS/Internship/Data/coastline/'
@@ -86,6 +86,21 @@ class uniform_grid(object):
         self.num = np.zeros([rows, cols], dtype=np.uint16)
         self.img = np.zeros([rows, cols], dtype=np.float32)
         return None
+
+    def FindPosition(self, lon, lat):
+        lon = (lon - self.__lon_min) / self.__h
+        lat = (lat - self.__lat_min) / self.__v
+        rows, cols = self.__size
+        lon_n = np.floor(lon).astype(np.int16)
+        lat_n = np.floor(lat).astype(np.int16)
+        del lon, lat
+        lat_n = rows - 1 - lat_n
+        c_ind = np.where((0<=lon_n) & (lon_n<cols))[0]
+        r_ind = np.where((0<=lat_n) & (lat_n<rows))[0]
+        Ind = r_ind[np.isin(r_ind, c_ind)]
+        del r_ind, c_ind
+        return lat_n, lon_n, Ind
+
 
 
 def GCP_Matrix(data):
@@ -185,6 +200,8 @@ def AllLonLat(name, x0, y0, GCP, n):
 
 
 
+# *****************************************************************************************************************
+
 
 class parallelogram_grid(object):
     def __init__(self):
@@ -265,9 +282,38 @@ def GridLL_SigmaNaught(mode = 'uniform'):
         Pn0 += Pixel_num
     st3 = time.time()
     print('Overlay:', st3- st2, 'sec')
-    Pixel_num = Pn0
+    Pixel_num = Pn0.copy()
     Pixel_num[Pixel_num == 0] = 1
     Grids.img = Pv0/Pixel_num
     Grids.num = Pn0
     return Grids.img, Grids.num
 
+
+
+# *****************************************************************************************************************
+
+
+
+
+def CoastlineInGrid():
+
+    def LoadCoastlineXYZ():
+        name = 't1.xyz'
+        f = open(coast_root + name)
+        coastline_dat = []
+        for line in f.readlines():
+            l = list(map(float, line.split()))
+            coastline_dat.append(l)
+        f.close()
+        coastline_dat = np.array(coastline_dat, dtype=np.float64)
+        coastline = coastline_dat[:, 0:2].astype(np.float64)
+        return coastline
+
+    grd = uniform_grid()
+    coastline_LL = LoadCoastlineXYZ()
+    R, C, ind = grd.FindPosition(coastline_LL[:, 0], coastline_LL[:, 1])
+    R, C = R[ind], C[ind]
+    temp = np.zeros([len(ind), 2], dtype=np.int16)
+    temp[:, 0], temp[:, 1] = R.copy(), C.copy()
+    np.save(coast_root+'Coastline position for each row.npy', temp)
+    return temp

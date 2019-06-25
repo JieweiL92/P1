@@ -91,4 +91,14 @@ if __name__ == '__main__':
     # 2. uniform grid with constant Lon Lat interval
     Resample(0, mode = 'uniform')
 
+    # make a grid
+    ll = rd.layers()
+    ll.GetData(layer_root)
+    ll.LoadData()
+    a = Lc.imp(ll.data[1])
+    a.save_fig(ll)
+
+
+    # md2.CoastlineInGrid()
+
 

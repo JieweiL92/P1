@@ -1,14 +1,16 @@
 import csv
-import gdal
-import os
-import sys
-import time
+import gdal, os, sys, time
 import xml.etree.ElementTree as ET
 import netCDF4 as ncdf
 import numpy as np
 import numpy.ma as ma
 from numba import jit
 
+level1_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/'
+layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Layer/'
+temp_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Temp/'
+file_root = 'F:/Jiewei/Sentinel-1/Level1-GRD-IW/WhiteCity/'
+tempN = 4
 
 def Bilinear(c1, c2, r1, r2, n11, n21, n12, n22):
     @jit(nopython=True, parallel=True)
@@ -426,6 +428,62 @@ class Sentinel_Product(object):
     @property
     def sn(self):
         return self.__sn
+
+
+
+class layers(object):
+    def __init__(self, dir = level1_root):
+        self.__root  = dir
+
+
+    @property
+    def data(self):
+        return self.__data
+    @property
+    def t(self):
+        return self.__t
+    @property
+    def count(self):
+        return self.__count
+
+
+    def LoadData(self):
+        self.__data = np.load(self.__root+'data.npy')
+        self.__count = np.load(self.__root+'count.npy')
+        with open(self.__root+'date_list.txt', 'r') as fid:
+            self.__t = fid.readlines()
+
+
+    def GetData(self, root = layer_root):
+        file_list = os.listdir(root)
+        name_list = []
+        layer_list = []
+        count_list = []
+        for i in range(1, len(file_list), 2):
+            s = file_list[i].find('-')
+            name_list.append(file_list[i][s+1:s+9])
+            layer_list.append(np.load(root+file_list[i]))
+            count_list.append(np.load(root+file_list[i-1]))
+        ind = np.argsort(name_list)
+        r,c =layer_list[0].shape
+        self.__data = np.zeros([int(len(file_list)/2), r, c], dtype=np.float32)
+        self.__count = np.zeros([int(len(file_list)/2), r, c], dtype=np.int16)
+        self.__t = []
+        n = 0
+        for i in ind:
+            self.__t.append(name_list[i])
+            self.__data[n, :, :] = layer_list[i]
+            self.__count[n, :, :] = count_list[i]
+            n += 1
+        np.save(level1_root+'data.npy', self.__data)
+        np.save(level1_root+'count.npy', self.__count)
+        with open(level1_root+'date_list.txt', 'w') as fid:
+            for lines in self.__t:
+                fid.write(lines+'\n')
+        return None
+
+
+
 
 if __name__ == '__main__':
     f_root = input('Please input the file you store Sentinel-1 level 1 product:\n')

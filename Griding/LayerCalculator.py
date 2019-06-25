@@ -8,11 +8,11 @@ layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Layer/'
 coast_root='D:/Academic/MPS/Internship/Data/coastline/'
 
 
-class ImagePlot(object):
+class imp(object):
     def __init__(self, data):
         self.__size = data.shape
         self.factor = 1
-        self.__ma = np.ma.array(data, mask = np.isnan(data))
+        self.__ma = np.ma.array(data, mask = np.isin(data, [0]))
         self.max = self.__ma.max()
         self.min = self.__ma.min()
 
@@ -24,8 +24,77 @@ class ImagePlot(object):
     def ma(self):
         return self.__ma
 
-    # def display(self, max = None, min = None, n = self.factor):
-    #     pass
+
+    def dB(self, data):
+        img = data
+        img[img<=0] = np.nan
+        img = 10*np.log10(img)
+        img[np.isnan(img)] = -200
+        return img
+
+
+    def rebin(self, n, data = 0):
+        if isinstance(data, int):
+            img = self.__ma
+        else:
+            img = data
+        rows, cols = img.shape
+        nr, nc = math.floor(rows / n), math.floor(cols / n)
+        dat = img[0:n * nr, 0:n * nc]
+        kernel = np.ones([n, n], dtype=np.int16)
+        temp = signal.convolve(dat, kernel, mode = 'valid')
+        img = temp[::n, ::n]
+        return img
+
+
+    def Display(self, data, max='t', min='t', mode = 'linear'):
+        if mode == 'dB':
+            data = self.dB(data)
+        if isinstance(max, str):
+            max_d = data.max()
+        else:
+            max_d = max
+        if isinstance(min, str):
+            min_d = data.min()
+        else:
+            min_d = min
+        img = (data-min_d)*255/(max_d-min_d)
+        img[img>255] = 255
+        img[img<0] = 0
+        rows, cols = data.shape
+        dpi = 100
+        fig = plt.figure(figsize=(rows / dpi, cols / dpi), dpi=dpi)
+        fig.figimage(img, cmap = 'gray')
+        return None
+
+    def save_fig(self, prod, root = layer_root):
+        min_d = -30
+        max_d = 0
+        for ii in range(len(prod.data)):
+            a1 = self.dB(prod.data[ii])
+            img = (a1 - min_d) * 255 / (max_d - min_d)
+            img[img > 255] = 255
+            img[img < 0] = 0
+            rows, cols = a1.shape
+            dpi = 100
+            fig = plt.figure(figsize=(cols / dpi, rows / dpi), dpi=dpi)
+            fig.figimage(img, cmap='gray')
+            plt.savefig(root+prod.t[ii][:-1]+'.png')
+            plt.close(fig)
+        print('Done!')
+        return None
+
+    def save_fig2(self, prod, root = layer_root):
+        for ii in range(len(prod.count)):
+            a1 = prod.count[ii]
+            rows, cols = a1.shape
+            dpi = 100
+            fig = plt.figure(figsize=(cols / dpi+2, rows / dpi), dpi=dpi)
+            fig.figimage(a1, cmap='gray')
+            plt.savefig(root+prod.t[ii][:-1]+'.png')
+            plt.close(fig)
+        print('Done!')
+        return None
 
 
 
@@ -94,32 +163,14 @@ def LoadCoastlineXYZ():
 
 
 
-def Distance(p0, coastline):
-    px, py = p0[1], p0[0]
-    d = list(map(lambda x, y: np.sqrt((x - px) ** 2 + (y - py) ** 2), coastline[:, 1], coastline[:, 0]))
-    return max(d)
 
-
-def ReadSubImage(n, root = layer_root):
-    file_list = os.listdir(root)
-    file_list2 = [t for t in file_list if t.find('Sub'+str(n))>0]
-    file_list2.sort()
-    data= []
-    for chr in file_list2:
-        temp = np.load(root+chr)
-        data.append(temp)
-    Ma = np.array(data)
-    return Ma
-
-
-def Cal4Maps(data, expc=[0,2]):
-    for i in expc:
-        data[i,:,:] = np.nan
-    MeanMap = np.nanmean(data, axis=0, dtype=np.float32)
-    MedianMap = np.nanmedian(data, axis=0)
-    StdMap = np.nanstd(data, axis=0, dtype=np.float64)
-    PeakMap = np.nanmax(data, axis = 0) - np.nanmin(data, axis = 0)
-    return MeanMap, MedianMap, StdMap, PeakMap
+def CalMaps(data, count):
+    imgs = np.ma.array(data, mask = np.where(count<=0, True, False))
+    MeanMap = imgs.mean(axis=0, dtype=np.float32)
+    MedianMap = np.median(imgs, axis=0)
+    StdMap = imgs.std(axis=0, dtype=np.float32)
+    PeakMap = imgs.max(axis = 0) - imgs.min(axis = 0)
+    return MeanMap, StdMap, PeakMap, MedianMap
 
 
 def Compare(dat, Mean, Median, Std):
