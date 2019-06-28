@@ -2,16 +2,22 @@ from functools import partial
 from multiprocessing import Pool
 import Internship_RSMAS.Griding.Coordinates as cod
 import Internship_RSMAS.Griding.IOcontrol as jo
-import math, time
+import Internship_RSMAS.Griding.LayerCalculator as Lc
+import math, time, os
+import matplotlib.pyplot as plt
+import netCDF4 as ncdf
+import matplotlib.colors as mcolor
 # from memory_profiler import profile
 import numpy as np
 from numba import jit
 
 level1_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/'
+level2_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level2/'
 grid_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Grid/'
 layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Layer/'
 coast_root='D:/Academic/MPS/Internship/Data/coastline/'
 temp_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Temp/'
+ocn_root = 'F:/Jiewei/Sentinel-1/Level2-OCN/'
 tempN = 4
 
 
@@ -293,9 +299,60 @@ def GridLL_SigmaNaught(mode = 'uniform'):
 # *****************************************************************************************************************
 
 
+def GridLL_Wind(lon, lat, u, v):
+    grd = uniform_grid()
+    grd.MakeGrid()
+    R, C, Ind = grd.FindPosition(lon, lat)
+    R, C = R[Ind], C[Ind]
+    U, V = u[Ind], v[Ind]
+    print(len(Ind))
+    return R, C, U, V
 
 
-def CoastlineInGrid():
+def save_fig(name, r, c , u, v, root = level2_root):
+    file_list = os.listdir(layer_root)
+    files = [file for file in file_list if file.find(name)>=0 and file.find('distribution')<0 and file.find('npy')>0]
+    data = np.load(layer_root+files[0])
+    a = Lc.imp(data)
+    a1 = a.dB(data)
+    min_d = -30
+    max_d = 0
+    img = (a1 - min_d) * 255 / (max_d - min_d)
+    img[img > 255] = 255
+    img[img < 0] = 0
+    rows, cols = a1.shape
+    dpi = 100
+    fig = plt.figure(figsize=(cols / dpi, rows / dpi), dpi=dpi)
+    ax = fig.add_subplot(111)
+    ax.imshow(img, cmap='gray')
+    norm = mcolor.Normalize(vmin = 0, vmax = 20)
+    m = [np.sqrt(u[i]**2+v[i]**2) for i in range(len(r))]
+    # q = ax.quiver(c, r, u, v, m, width=0.001, headwidth=1, cmap='bwr', norm=norm)
+    q = ax.quiver(c,r,u,v, m,cmap = 'bwr', norm = norm)
+    # fig.colorbar(q, ax = ax)
+    plt.savefig(root+name+'.png')
+    plt.close()
+
+def ReadCDSData(name, path = 'F:/Jiewei/CDS/'):
+    dataset = ncdf.Dataset(path+name+'.nc')
+    lon_arr = dataset.variables['longitude'][:].data             # 0, 0.25, 0.5, 0.75, ..., 359.5, 359.75   936:951+1
+    lat_arr = dataset.variables['latitude'][:].data              # 90, 89.75, ... -90                       186:195+1
+    lon_arr = lon_arr[936:952]-360
+    lat_arr = lat_arr[186:196]
+    u10 = dataset.variables['u10'][:].data[:,186:196,936:952]
+    v10 = dataset.variables['v10'][:].data[:,186:196,936:952]
+    del dataset
+    d14_u = u10[0,:,:]
+    d15_u = u10[1,:,:]
+    d14_v = v10[0,:,:]
+    d15_v = v10[1,:,:]
+    del u10, v10
+    u = (d14_u*7+d15_u*5)/12
+    v = (d14_v*7+d15_v*5)/12
+    return lon_arr, lat_arr, u, v
+
+# *****************************************************************************************************************
+def LeftCoastInGrid():
 
     def LoadCoastlineXYZ():
         name = 't1.xyz'
@@ -311,9 +368,15 @@ def CoastlineInGrid():
 
     grd = uniform_grid()
     coastline_LL = LoadCoastlineXYZ()
+    print(len(coastline_LL))
     R, C, ind = grd.FindPosition(coastline_LL[:, 0], coastline_LL[:, 1])
     R, C = R[ind], C[ind]
-    temp = np.zeros([len(ind), 2], dtype=np.int16)
-    temp[:, 0], temp[:, 1] = R.copy(), C.copy()
-    np.save(coast_root+'Coastline position for each row.npy', temp)
+    print(len(R))
+    temp = np.zeros(grd.size[0], dtype=np.int16)
+    for ii in range(len(R)):
+        if temp[R[ii]] == 0:
+            temp[R[ii]] = C[ii]
+        else:
+            temp[R[ii]] = min(temp[R[ii]], C[ii])
+    np.save(coast_root+'Left coast for each row.npy', temp)
     return temp

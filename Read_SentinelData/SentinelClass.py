@@ -10,6 +10,7 @@ level1_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/'
 layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Layer/'
 temp_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Temp/'
 file_root = 'F:/Jiewei/Sentinel-1/Level1-GRD-IW/WhiteCity/'
+ocn_root = 'F:/Jiewei/Sentinel-1/Level2-OCN/'
 tempN = 4
 
 def Bilinear(c1, c2, r1, r2, n11, n21, n12, n22):
@@ -365,31 +366,20 @@ class Data_Level2(object):
         v = DataSet.variables
         self.__speed = v['owiWindSpeed'][:]
         self.__direct = v['owiWindDirection'][:]
-        self.__mask = v['owiMask'][:].data
+        # self.__mask = v['owiMask'][:].data
         self.__lon = v['owiLon'][:]
         self.__lat = v['owiLat'][:]
 
     def CalWindVector(self):
-        DMask = self.__speed.mask
+        DMask = self.__speed.mask                            # 0 useful
         w_speed = self.__speed.data
         w_direct = self.__direct.data
-        vectorX = w_speed * np.sin(w_direct * np.pi / 180)
-        vectorY = w_speed * np.cos(w_direct * np.pi / 180)
+        vectorX = w_speed * np.sin(w_direct * np.pi / 180)   # U
+        vectorY = w_speed * np.cos(w_direct * np.pi / 180)   # V
         self.__windX = ma.array(vectorX, mask=DMask, fill_value=-999)
         self.__windY = ma.array(vectorY, mask=DMask, fill_value=-999)
 
 
-def WriteData(root):
-    d = SentinelData()
-    d.Get_List(root)
-    for t in range(len(d.series)):
-        temp = Data_Level1(d.series[t], d.FList[t])
-        temp.CalNRCS()
-        temp.Writer()
-        sys.stdout.write('Writing%.3f%%' % float(t / len(d.series)) * 100 + '\r')
-        sys.stdout.flush()
-    print('Done!')
-    return
 
 
 class Sentinel_Product(object):
@@ -482,9 +472,22 @@ class layers(object):
                 fid.write(lines+'\n')
         return None
 
+    def CalMean(self, coast):
+        num, rows, cols = self.__data.shape
+        self.mean = np.zeros(num, dtype=np.float32)
+        for ii in range(num):
+            count = self.__count[ii, :, :]
+            img = self.__data[ii, :, :]
+            r_mean = np.zeros(rows, dtype=np.float32)
+            for r in range(rows):
+                d1 = img[r, 0:coast[r]]
+                d2 = count[r, 0:coast[r]]
+                r_mean[r] = np.sum(d1*d2)/d2.sum()
+            self.mean[ii] = np.sum(r_mean*coast)
+        return None
 
 
 
 if __name__ == '__main__':
     f_root = input('Please input the file you store Sentinel-1 level 1 product:\n')
-    WriteData(f_root)
+

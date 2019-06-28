@@ -2,6 +2,7 @@ import math, cv2, os
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import signal
+from numba import jit
 
 grid_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Grid/'
 layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Layer/'
@@ -163,14 +164,39 @@ def LoadCoastlineXYZ():
 
 
 
-
+@jit(nopython=True, parallel=True)
 def CalMaps(data, count):
-    imgs = np.ma.array(data, mask = np.where(count<=0, True, False))
-    MeanMap = imgs.mean(axis=0, dtype=np.float32)
-    MedianMap = np.median(imgs, axis=0)
-    StdMap = imgs.std(axis=0, dtype=np.float32)
-    PeakMap = imgs.max(axis = 0) - imgs.min(axis = 0)
-    return MeanMap, StdMap, PeakMap, MedianMap
+    # imgs = np.ma.array(data, mask = np.where(count<=0, True, False))
+    # MeanMap = imgs.mean(axis=0, dtype=np.float32)
+    # MedianMap = np.median(imgs, axis=0)
+    # StdMap = imgs.std(axis=0, dtype=np.float32)
+    # PeakMap = imgs.max(axis = 0) - imgs.min(axis = 0)
+    num, rows, cols = data.shape
+    MeanMap = np.zeros([rows, cols], dtype = np.float32)
+    MedianMap = np.zeros_like(MeanMap)
+    StdMap = np.zeros_like(MeanMap)
+    PeakMap = np.zeros_like(MeanMap)
+    for r in range(rows):
+        for c in range(cols):
+            dat= data[:, r, c]
+            dat = dat[np.where(count[:, r, c]>0)]
+            MeanMap[r, c] = dat.mean()
+            MedianMap = dat.median()
+            StdMap = dat.std()
+            PeakMap = dat.max()-dat.min()
+    return MeanMap, MedianMap, StdMap, PeakMap
+
+
+def CalMean(img, count, coast):
+    rows, cols = img.shape
+    r_mean = np.zeros(rows, dtype=np.float32)
+    for r in range(rows):
+        d1 = img[r, 0:coast[r]]
+        d2 = count[r, 0:coast[r]]
+        r_mean[r] = np.sum(d1*d2)/d2.sum()
+    ss = np.sum(r_mean*coast)
+    return ss
+
 
 
 def Compare(dat, Mean, Median, Std):

@@ -5,6 +5,7 @@ import Internship_RSMAS.Griding.IOcontrol as jo
 import Internship_RSMAS.Griding.LayerCalculator as Lc
 import Internship_RSMAS.Read_SentinelData.SentinelClass as rd
 import time
+import numpy as np
 
 
 # use first layer (base) as standard grid and attain its lon and lat
@@ -13,11 +14,12 @@ import time
 # then we get points (lon,lat) and their corresponding SigmaNaught
 # apply delaunay triangulation-------------many small triangles
 # figure the
-
+cds_root = 'D:/Academic/MPS/Internship/Data/CDS/'
 level1_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/'
 layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Layer/'
 temp_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Temp/'
 file_root = 'F:/Jiewei/Sentinel-1/Level1-GRD-IW/WhiteCity/'
+ocn_root = 'F:/Jiewei/Sentinel-1/Level2-OCN/'
 tempN = 4
 
 def MakeAGrid(name, dir):
@@ -77,6 +79,40 @@ def Resample(n, mode = 'uniform'):
     return None
 
 
+def ResampleWind():
+    d = rd.SentinelData()
+    d.Get_List_NetCDF(ocn_root)
+    for indice in range(len(d.series)):
+        temp = rd.Data_Level2(d.series[indice], d.FList[indice])
+        temp.Get_WindData()
+        temp.CalWindVector()
+        mask= temp.windX.mask.reshape(-1)
+        Ind = np.where(mask == 0)[0]
+        lon = temp.lon.data.reshape(-1)
+        lat = temp.lat.data.reshape(-1)
+        U = temp.windX.data.reshape(-1)
+        V = temp.windY.data.reshape(-1)
+        lon, lat, U, V = lon[Ind], lat[Ind], U[Ind], V[Ind]
+        r, c, u, v = md2.GridLL_Wind(lon, lat, U, V)
+        md2.save_fig(d.series[indice], r, c, u, v)
+    return None
+
+
+def MatchCDS():
+    data = rd.layers()
+    data.LoadData()
+    for indice in range(len(data.t)):
+        lon, lat, u, v = md2.ReadCDSData(data.t[indice][:-1])
+        rows, cols = u.shape
+        lon_N = [lon[c] for r in range(rows) for c in range(cols)]
+        lat_N = [lat[r] for r in range(rows) for c in range(cols)]
+        lon_N = np.array(lon_N)
+        lat_N = np.array(lat_N)
+        u, v = u.reshape(-1), v.reshape(-1)
+        r, c, u, v = md2.GridLL_Wind(lon_N, lat_N, u, v)
+        md2.save_fig(data.t[indice][:-1], r, c, u, v, cds_root)
+    return None
+
 
 if __name__ == '__main__':
     # # 1. grid based on layers 20170216
@@ -89,16 +125,19 @@ if __name__ == '__main__':
 
 
     # 2. uniform grid with constant Lon Lat interval
-    Resample(0, mode = 'uniform')
+    # Resample(0, mode = 'uniform')
+    #
+    # # make images
+    # ll = rd.layers()
+    # ll.GetData(layer_root)
+    # ll.LoadData()
+    # a = Lc.imp(ll.data[1])
+    # a.save_fig(ll)
 
-    # make a grid
-    ll = rd.layers()
-    ll.GetData(layer_root)
-    ll.LoadData()
-    a = Lc.imp(ll.data[1])
-    a.save_fig(ll)
+    # level2 wind
+    # ResampleWind()
 
-
-    # md2.CoastlineInGrid()
+    # CDS data
+    MatchCDS()
 
 

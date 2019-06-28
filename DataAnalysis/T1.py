@@ -1,8 +1,7 @@
-import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime, timedelta
 import netCDF4 as ncdf
-import Internship_RSMAS.DownloadData.Download_sentinel as ds
+import Internship_RSMAS.Read_SentinelData.SentinelClass as rd
 
 
 def ReadUpwellingIndex():
@@ -39,21 +38,30 @@ def ReadBuoyWindData(path):
     return times, wind_direction, wind_speed
 
 
-def ReadCDSData(path):
-    date_list = ds.DateList(datetime(2017,2,16))
-    dataset = ncdf.Dataset(path)
-
-    lon_arr = dataset.variables['longitude'][:].data
-    lat_arr = dataset.variables['latitude'][:].data
-    dl = (np.array(date_list) - datetime(2017,1,1))/24
-    ind14, ind15 = dl*2, dl*2+1
-    d14_u = [dataset.variables['u10'][:].data[i,:,:] for i in ind14]
-    d15_u = [dataset.variables['u10'][:].data[i,:,:] for i in ind15]
-    d14_v = [dataset.variables['v10'][:].data[i,:,:] for i in ind14]
-    d15_v = [dataset.variables['v10'][:].data[i,:,:] for i in ind15]
+def ReadCDSData(name, path = 'F:/Jiewei/CDS/'):
+    dataset = ncdf.Dataset(path+name+'.nc')
+    lon_arr = dataset.variables['longitude'][:].data             # 0, 0.25, 0.5, 0.75, ..., 359.5, 359.75   936:951+1
+    lat_arr = dataset.variables['latitude'][:].data              # 90, 89.75, ... -90                       186:195+1
+    lon_arr = lon_arr[936:952]-360
+    lat_arr = lat_arr[186:196]
+    u10 = dataset.variables['u10'][:].data[:,186:196,936:952]
+    v10 = dataset.variables['v10'][:].data[:,186:196,936:952]
     del dataset
-    return lon_arr, lat_arr, d14_u, d15_u, d14_v, d15_v
+    d14_u = u10[0,:,:]
+    d15_u = u10[1,:,:]
+    d14_v = v10[0,:,:]
+    d15_v = v10[1,:,:]
+    del u10, v10
+    u = (d14_u*7+d15_u*5)/12
+    v = (d14_v*7+d15_v*5)/12
+    return lon_arr, lat_arr, u, v
 
+
+def MeanValue():
+    ll = rd.layers()
+    ll.LoadData()
+    ll.CalMean()
+    return None
 
 if __name__ == '__main__':
     pass
