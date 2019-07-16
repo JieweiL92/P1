@@ -2,12 +2,17 @@ import math, cv2, os
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import signal
-from numba import jit
+from scipy.interpolate import griddata
+from Internship_RSMAS.Griding import Method2 as md2
+from Internship_RSMAS.Read_SentinelData import SentinelClass as rd
+import Internship_RSMAS.DataAnalysis.T1 as tt1
 
 grid_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Grid/'
 layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Layer/'
 coast_root='D:/Academic/MPS/Internship/Data/coastline/'
-
+cds_root = 'D:/Academic/MPS/Internship/Data/CDS/'
+level1_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/'
+level2_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level2/'
 
 class imp(object):
     def __init__(self, data):
@@ -99,6 +104,11 @@ class imp(object):
 
 
 
+
+
+
+
+
 def Display(dataset, r = 0.1, n = 0, mode = 'linear'):
     if len(dataset.shape) == 2:
         data = dataset
@@ -164,7 +174,7 @@ def LoadCoastlineXYZ():
 
 
 
-@jit(nopython=True, parallel=True)
+# @jit(nopython=True, parallel=True)
 def CalMaps(data, count):
     # imgs = np.ma.array(data, mask = np.where(count<=0, True, False))
     # MeanMap = imgs.mean(axis=0, dtype=np.float32)
@@ -173,32 +183,117 @@ def CalMaps(data, count):
     # PeakMap = imgs.max(axis = 0) - imgs.min(axis = 0)
     num, rows, cols = data.shape
     MeanMap = np.zeros([rows, cols], dtype = np.float32)
-    MedianMap = np.zeros_like(MeanMap)
     StdMap = np.zeros_like(MeanMap)
     PeakMap = np.zeros_like(MeanMap)
     for r in range(rows):
         for c in range(cols):
             dat= data[:, r, c]
             dat = dat[np.where(count[:, r, c]>0)]
-            MeanMap[r, c] = dat.mean()
-            MedianMap = dat.median()
-            StdMap = dat.std()
-            PeakMap = dat.max()-dat.min()
-    return MeanMap, MedianMap, StdMap, PeakMap
+            if len(dat) > 0:
+                MeanMap[r, c] = dat.mean()
+                StdMap[r, c] = dat.std()
+                PeakMap[r, c] = dat.max()-dat.min()
+    return MeanMap, StdMap, PeakMap
 
 
-def CalMean(img, count, coast):
-    rows, cols = img.shape
-    r_mean = np.zeros(rows, dtype=np.float32)
+def CalM(data, tt, method):
+    num, rows, cols = data.shape
+    mmm = np.zeros([rows, cols], dtype=np.float32)
     for r in range(rows):
-        d1 = img[r, 0:coast[r]]
-        d2 = count[r, 0:coast[r]]
-        r_mean[r] = np.sum(d1*d2)/d2.sum()
-    ss = np.sum(r_mean*coast)
-    return ss
+        for c in range(tt[r]):
+            dat = data[:, r, c]
+            d1 = dat[np.logical_not(np.isnan(dat))]
+            if len(d1)>0:
+                mmm[r, c] = method(d1)
+    return mmm
+
+
+def KbMap(xmin, xmax):
+    N_list=list(range(38, 72))
+    N_list.remove(39)
+    N_list.remove(58)
+    N_list.remove(69)
+    temp = rd.Grid_data()
+    temp.LoadData(ty = 'resize')
+    wspeed_cds = np.sqrt(temp.u_cds*temp.u_cds+temp.v_cds*temp.v_cds)
+    wspeed_s2 = np.sqrt(temp.u_s2*temp.u_s2+temp.v_s2*temp.v_s2)
+    tt = np.zeros(15, dtype=np.int8)
+    ss = np.zeros_like(tt)
+    ss[:] = 18
+    for r in range(15):
+        for c in range(19):
+            if wspeed_s2[42, r, c] > 0:
+                tt[r] = max(tt[r], c)
+                ss[r] = min(ss[r], c)
+    nums, rows, cols = wspeed_s2.shape
+    kmap = np.zeros([rows, cols], dtype = np.float_)
+    bmap = np.zeros_like(kmap)
+    kmap[:, :], bmap[:, :] = np.nan, np.nan
+    for r in range(rows):
+        for c in range(ss[r], tt[r]+1):
+            dat1, dat2= [], []
+            for n in N_list:
+                if np.logical_not(np.isnan(wspeed_s2[n, r, c])) and np.logical_not(np.isnan(wspeed_cds[n, r, c])) and (xmin<wspeed_cds[n, r, c]<xmax):
+                    dat1.append(wspeed_cds[n, r, c])
+                    dat2.append(wspeed_s2[n, r, c])
+            print(r, c, len(dat1))
+            if len(dat1)!=0:
+                x, y, k, b = tt1.LR(dat1, dat2)
+                kmap[r, c] = k
+                bmap[r, c] = b
+    return kmap, bmap
 
 
 
-def Compare(dat, Mean, Median, Std):
-    img = (dat-Mean)/Mean
 
+def InterpolationWinds(r, c, u, v):
+    rc = [[r[i], c[i]] for i in range(len(c))]
+    rc = np.array(rc)
+    grd = md2.uniform_grid()
+    rows, cols = grd.size
+    xy = [(rr, cc) for rr in range(rows) for cc in range(cols)]
+    xy = np.array(xy)
+    u10 = griddata(rc, u, xy)
+    v10 = griddata(rc, v, xy)
+    u10 = u10.reshape([rows, cols])
+    v10 = v10.reshape([rows, cols])
+    return u10, v10
+
+
+def InterpolationCDSwind(du, dv):
+    rc, u, v = [], [], []
+    rc_app, u_app, v_app = rc.append, u.append, v.append
+    for key in du.keys():
+        rc_app(key)
+        u_app(np.mean(du[key]))
+        v_app(np.mean(dv[key]))
+    rc, u, v = np.array(rc), np.array(u), np.array(v)
+    rows, cols = 15, 19
+    xy = [(rr, cc) for rr in range(rows) for cc in range(cols)]
+    xy = np.array(xy)
+    u10 = griddata(rc, u, xy)
+    v10 = griddata(rc, v, xy)
+    u10 = u10.reshape([rows, cols])
+    v10 = v10.reshape([rows, cols])
+    return u10, v10
+
+
+def Extract_NRCS(R, C, data = 0):
+    if isinstance(data, int):
+        temp = rd.Grid_data()
+        temp.LoadData(ty='resize')
+        data = temp.NRCS
+    N_list=list(range(38, 72))
+    N_list.remove(39)
+    N_list.remove(58)
+    N_list.remove(69)
+    s_list = np.zeros(len(N_list))
+    r_range = [R*150, min((R+1)*150-1, 2101)]
+    c_range = [C*150, min((C+1)*150-1, 2820)]
+    now = 0
+    for n in N_list:
+        tem = data[n, r_range[0]: r_range[1]+1, c_range[0]:c_range[1]+1]
+        tem = np.where(tem>0.8, np.nan, tem)
+        s_list[now] = np.nanmean(tem)
+        now += 1
+    return s_list

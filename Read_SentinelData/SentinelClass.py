@@ -1,16 +1,20 @@
 import csv
-import gdal, os, sys, time
+import gdal, os, time
 import xml.etree.ElementTree as ET
 import netCDF4 as ncdf
 import numpy as np
 import numpy.ma as ma
 from numba import jit
+from datetime import datetime
 
+cds_root = 'D:/Academic/MPS/Internship/Data/CDS/'
 level1_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/'
+level2_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level2/'
 layer_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Layer/'
 temp_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/Temp/'
 file_root = 'F:/Jiewei/Sentinel-1/Level1-GRD-IW/WhiteCity/'
 ocn_root = 'F:/Jiewei/Sentinel-1/Level2-OCN/'
+coast_root='D:/Academic/MPS/Internship/Data/coastline/'
 tempN = 4
 
 def Bilinear(c1, c2, r1, r2, n11, n21, n12, n22):
@@ -365,7 +369,7 @@ class Data_Level2(object):
         DataSet = ncdf.Dataset(self.__addr)
         v = DataSet.variables
         self.__speed = v['owiWindSpeed'][:]
-        self.__direct = v['owiWindDirection'][:]
+        self.__direct = v['owiWindDirection'][:]             #
         # self.__mask = v['owiMask'][:].data
         self.__lon = v['owiLon'][:]
         self.__lat = v['owiLat'][:]
@@ -374,8 +378,8 @@ class Data_Level2(object):
         DMask = self.__speed.mask                            # 0 useful
         w_speed = self.__speed.data
         w_direct = self.__direct.data
-        vectorX = w_speed * np.sin(w_direct * np.pi / 180)   # U
-        vectorY = w_speed * np.cos(w_direct * np.pi / 180)   # V
+        vectorX = w_speed * np.cos((270-w_direct) * np.pi / 180)   # U
+        vectorY = w_speed * np.sin((270-w_direct) * np.pi / 180)   # V
         self.__windX = ma.array(vectorX, mask=DMask, fill_value=-999)
         self.__windY = ma.array(vectorY, mask=DMask, fill_value=-999)
 
@@ -486,6 +490,118 @@ class layers(object):
             self.mean[ii] = np.sum(r_mean*coast)
         return None
 
+
+class winddata(object):
+    def __init__(self):
+        self.__u = 0
+        self.__v = 0
+
+    @property
+    def u(self):
+        return self.__u
+    @property
+    def v(self):
+        return self.__v
+
+
+    def GetData(self, dates, root, ty = 'interp'):
+        l = len(dates)
+        if ty == 'interp':
+            rows, cols = 2101, 2820
+        else:
+            rows, cols = 15, 19
+        self.__u = np.zeros([l, rows, cols], dtype=np.float16)
+        self.__v = np.zeros_like(self.__u)
+        file_set = os.listdir(root)
+        for ind in range(len(dates)):
+            name = datetime.strftime(dates[ind], '%Y%m%d')
+            self.__u[ind, :, :], self.__v[ind, :, :] = np.nan, np.nan
+            tn = name+'-u10.npy'
+            if tn in file_set:
+                u10 = np.load(root + name + '-u10.npy')
+                v10 = np.load(root + name + '-v10.npy')
+                self.__u[ind, :, :], self.__v[ind, :, :] = u10, v10
+
+
+
+
+class Grid_data(object):
+    def __init__(self):
+        self.__v = 8.996e-4  # length in degrees
+        self.__h = 1.211e-3  # length in degrees
+        self.__size = (2101, 2820)  # pixel numbers
+        self.__lon_min = -125.8370
+        self.__lat_min = 41.3856
+
+    @property
+    def size(self):
+        return self.__size
+    @property
+    def u_cds(self):
+        return self.__u_cds
+    @property
+    def v_cds(self):
+        return self.__v_cds
+    @property
+    def u_s2(self):
+        return self.__u_s2
+    @property
+    def v_s2(self):
+        return self.__v_s2
+    @property
+    def NRCS(self):
+        return self.__NRCS
+    @property
+    def tag(self):
+        return self.__tag
+    @property
+    def mask(self):
+        return self.__mask
+
+
+    def LoadData(self, ty = 'interp'):
+        d = layers()
+        d.LoadData()
+        self.__NRCS = d.data
+        self.__quality = d.count
+        self.__tag = d.t
+        if ty == 'interp':
+            self.__u_cds = np.load(cds_root+'u10-interp.npy')
+            self.__v_cds = np.load(cds_root+'v10-interp.npy')
+            self.__u_s2 = np.load(level2_root+'u10-interp.npy')
+            self.__v_s2 = np.load(level2_root+'v10-interp.npy')
+        else:
+            self.__u_cds = np.load(cds_root+'u10.npy')
+            self.__v_cds = np.load(cds_root+'v10.npy')
+            self.__u_s2 = np.load(level2_root+'u10.npy')
+            self.__v_s2 = np.load(level2_root+'v10.npy')
+        temp = np.zeros([2101, 2820], dtype = np.int8)
+        tt = np.load(coast_root+'Left coast for each row.npy')
+        for ind in range(len(tt)):
+            temp[ind, 0:tt[ind]] = 1
+        self.__mask = [tt, temp]                                            # 1 for ocean
+        return None
+
+    def position_center(self):
+        lon = np.zeros([15,19])
+        lat = np.zeros_like(lon)
+        up = self.__lat_min + 2101*self.__v
+        left = self.__lon_min
+        for r in range(15):
+            upleft_lat = up - r * 150 * self.__v
+            rr =  (r + 1) * 150
+            if rr>2101:
+                rr = 2101
+            lowright_lat = up - rr * self.__v
+            lat[r, c] = (upleft_lat+lowright_lat)/2
+            for c in range(19):
+                upleft_lon = left + c*150*self.__h
+                cc = (c + 1) *150
+                if cc>2820:
+                    cc = 2820
+                lowright_lon = left + cc * self.__h
+                lon[r, c] = (upleft_lon+lowright_lon)/2
+        return lon, lat
 
 
 if __name__ == '__main__':

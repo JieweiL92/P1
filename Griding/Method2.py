@@ -9,6 +9,7 @@ import netCDF4 as ncdf
 import matplotlib.colors as mcolor
 # from memory_profiler import profile
 import numpy as np
+from scipy import signal
 from numba import jit
 
 level1_root = 'D:/Academic/MPS/Internship/Data/Sentinel/Level1/'
@@ -327,11 +328,56 @@ def save_fig(name, r, c , u, v, root = level2_root):
     ax.imshow(img, cmap='gray')
     norm = mcolor.Normalize(vmin = 0, vmax = 20)
     m = [np.sqrt(u[i]**2+v[i]**2) for i in range(len(r))]
-    # q = ax.quiver(c, r, u, v, m, width=0.001, headwidth=1, cmap='bwr', norm=norm)
-    q = ax.quiver(c,r,u,v, m,cmap = 'bwr', norm = norm)
-    # fig.colorbar(q, ax = ax)
+    q = ax.quiver(c, r, u, v, m, width=0.001, headwidth=1, cmap='bwr', norm=norm)
+    # q = ax.quiver(c,r,u,v, m,cmap = 'bwr', norm = norm)
+    fig.colorbar(q, ax = ax)
     plt.savefig(root+name+'.png')
     plt.close()
+
+
+
+
+
+def pp_fig(name, root = level2_root):
+    file_list = os.listdir(layer_root)
+    files = [file for file in file_list if file.find(name)>=0 and file.find('distribution')<0 and file.find('npy')>0]
+    data = np.load(layer_root+files[0])
+    a = Lc.imp(data)
+    a1 = a.dB(data)
+    min_d = -30
+    max_d = 0
+    img = (a1 - min_d) * 255 / (max_d - min_d)
+    img[img > 255] = 255
+    img[img < 0] = 0
+    rows, cols = a1.shape
+    dpi = 100
+    fig = plt.figure(figsize=(cols / dpi, rows / dpi), dpi=dpi)
+    ax = fig.add_subplot(111)
+    ax.imshow(img, cmap='gray')
+    rows, cols = img.shape
+    cs = np.ones(rows, dtype=np.int)
+    rs = np.ones(cols, dtype=np.int)
+    cstd = np.arange(rows, dtype = np.int)
+    rstd = np.arange(cols, dtype = np.int)
+    for r in range(0, rows, 150):
+        plt.plot(rstd, rs*r, 'b')
+    for c in range(0, cols, 150):
+        plt.plot(cs*c, cstd, 'b')
+    plt.savefig(root+'add_grid-'+name+'.png')
+    plt.close()
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def ReadCDSData(name, path = 'F:/Jiewei/CDS/'):
     dataset = ncdf.Dataset(path+name+'.nc')
@@ -380,3 +426,27 @@ def LeftCoastInGrid():
             temp[R[ii]] = min(temp[R[ii]], C[ii])
     np.save(coast_root+'Left coast for each row.npy', temp)
     return temp
+#
+#
+# def CoastInImage(data):
+#     nums, rows, cols = data.data.shape
+#     x_position = np.zeros([nums, rows], dtype=np.int16)
+#     kernel = np.ones(5)/5
+#     for n in range(nums):
+#         for r in range(rows):
+#             dat = data.data[n, r, :]
+#             dat = signal.convolve(dat, kernel, mode = 'same')
+#             ind_list = np.where(dat>0.6)[0]
+#             if len(ind_list)>0:
+#                 x_position[n, r] = int(ind_list[0])
+#     average_x = np.zeros(rows, dtype=np.int16)
+#     for r in range(rows):
+#         dat = x_position[:, r]
+#         dat = dat[dat != 0]
+#         if len(dat)>0:
+#             weight = np.sin(range())
+#             kernel_t = kernel_t/sum(kernel_t)
+#             dat = signal.convolve(dat, kernel_t, mode = 'same')
+#             average_x[r] = sum(dat)
+#     return x_position, average_x
+
