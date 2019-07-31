@@ -1,4 +1,7 @@
+import Internship_RSMAS.Griding.Method2 as md2
+import Internship_RSMAS.DataAnalysis.RowPlots as rp
 from datetime import datetime, timedelta
+import matplotlib.pyplot as plt
 import numpy as np
 import os
 
@@ -100,18 +103,48 @@ def MergeBuoy(root):
 
 
 if __name__ == '__main__':
-    filelist = os.listdir(buoy_root)
-    wdat, LL = [], []
-    for iii in range(len(filelist)):
-        print('\n',filelist[iii])
-        wdata, lon, lat = MergeBuoy(buoy_root+filelist[iii]+'/')
-        wdat.append(wdata)
-        LL.append([lon, lat])
-    print(len(wdat))
-    LL = np.array(LL)
-    print(LL)
-    wdat = np.array(wdat)
-    print(wdat.shape)
-    np.save('D:/Academic/MPS/Internship/Data/Buoys/'+'wind(direction+speed).npy', wdat)
-    np.save('D:/Academic/MPS/Internship/Data/Buoys/'+'Position.npy', LL)
-    print('Done!')
+    # filelist = os.listdir(buoy_root)
+    # wdat, LL = [], []
+    # for iii in range(len(filelist)):
+    #     print('\n',filelist[iii])
+    #     wdata, lon, lat = MergeBuoy(buoy_root+filelist[iii]+'/')
+    #     wdat.append(wdata)
+    #     LL.append([lon, lat])
+    # print(len(wdat))
+    # LL = np.array(LL)
+    # print(LL)
+    # wdat = np.array(wdat)
+    # print(wdat.shape)
+    # np.save('D:/Academic/MPS/Internship/Data/Buoys/'+'wind(direction+speed).npy', wdat)
+    # np.save('D:/Academic/MPS/Internship/Data/Buoys/'+'Position.npy', LL)
+    # print('Done!')
+
+    wdat = np.load('D:/Academic/MPS/Internship/Data/Buoys/'+'wind(direction+speed).npy')
+    wdat = wdat[:, 36:67, :]
+    LL = np.load('D:/Academic/MPS/Internship/Data/Buoys/'+'Position.npy')
+    grd = md2.uniform_grid()
+    r, c, i = grd.FindPosition(LL[:, 0], LL[:, 1])
+    r, c = r // 150, c // 150
+    print(r, c)
+    sigma, ws2, wcds, ds2, dcds, ss, tt = rp.eliminate()
+
+    for i in range(4):
+        plt.figure(i)
+        plt.plot(wdat[i, :, 1], label = 'Buoys')
+        plt.plot(ws2[:, r[i], c[i]], label = 'Sentinel Product')
+        plt.plot(wcds[:, r[i], c[i]], label = 'ECMWF')
+        plt.legend()
+        plt.title('Compare wind speed data')
+    plt.show()
+    #
+    # for i in range(4):
+    #     plt.figure(i)
+    #     plt.plot(wdat[i, :, 0], label = 'Buoys')
+    #     plt.plot(ds2[:, r[i], c[i]], label = 'Sentinel Product')
+    #     plt.plot(dcds[:, r[i], c[i]], label = 'ECMWF')
+    #     plt.legend()
+    #     plt.title('Compare wind direction data')
+    # plt.show()
+
+
+

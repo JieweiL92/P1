@@ -104,6 +104,83 @@ def LR(xx, yy):
     x = np.arange(20)
     y = k * x + b
     return x, y, k, b
+
+
+def LR2(xx, yy):
+    # b = np.zeros(len(xx))
+    # a = np.zeros([len(b), 2])
+    # a[:, 1] = 0
+    # a[:, 0] = xx
+    # b[:] = yy
+    # a_tem = np.dot(a.T, a)
+    # a_tem = np.linalg.inv(a_tem)
+    # a_tem = np.dot(a_tem, a.T)
+    # result = np.dot(a_tem, b)
+    def r_sq(k):
+        r2 = (k*xx-yy)**2/(k*k+1)
+        return np.sum(r2)
+
+    k_min, k_max = (yy/xx).min(), (yy/xx).max()
+    k_best = 0
+    r_min = min(r_sq(k_min), r_sq(k_max))
+    steps = 0
+    while steps<20:
+        k1 = k_min*3/4 + k_max/4
+        k2 = k_min/2 + k_max/2
+        k3 = k_min/4 + k_max*3/4
+        if r_sq(k1)<r_sq(k3):
+            k_max = k2
+        elif r_sq(k1)>r_sq(k3):
+            k_min = k1
+        else:
+            k_max = k3
+            k_min = k2
+        r_tem = r_sq(k2)
+        if r_tem<r_min:
+            k_best = k2
+            r_min = r_tem
+        steps += 1
+    return k_best
+
+
+
+
+def LRb(xx, yy):
+    # b = np.zeros(len(xx))
+    # a = np.zeros([len(b), 2])
+    # a[:, 1] = 0
+    # a[:, 0] = xx
+    # b[:] = yy
+    # a_tem = np.dot(a.T, a)
+    # a_tem = np.linalg.inv(a_tem)
+    # a_tem = np.dot(a_tem, a.T)
+    # result = np.dot(a_tem, b)
+    def r_sq(b):
+        r2 = (xx-yy+b)**2/5
+        return np.sum(r2)
+
+    b_min, b_max = (yy-xx).min(), (yy-xx).max()
+    b_best = 0
+    r_min = min(r_sq(b_min), r_sq(b_max))
+    steps = 0
+    while steps<20:
+        b1 = b_min*3/4 + b_max/4
+        b2 = b_min/2 + b_max/2
+        b3 = b_min/4 + b_max*3/4
+        if r_sq(b1)<r_sq(b3):
+            b_max = b2
+        elif r_sq(b1)>r_sq(b3):
+            b_min = b1
+        else:
+            b_max = b3
+            b_min = b2
+        r_tem = r_sq(b2)
+        if r_tem<r_min:
+            b_best = b2
+            r_min = r_tem
+        steps += 1
+    return b_best
+
 #
 #
 # def distanceLL(coastline):
@@ -165,108 +242,119 @@ def pp(wd, name):    # cds s2
     plt.ylim(0, 20)
 
 
+def DrawMap(name, layer, alpha, vmin, vmax):
+    data = np.load('D:/Academic/MPS/Internship/Data/Sentinel/Level1/Layer/Layer40-20180518.npy')
+    a = Lc.imp(data)
+    a1 = a.dB(data)
+    min_d, max_d = -30, 0
+    img = (a1 - min_d) * 255 / (max_d - min_d)
+    img[np.isnan(img)] = 255
+    img[img > 255] = 255
+    img[img < 0] = 0
+    del a, a1
+    rows, cols = img.shape
+    dpi = 100
+    fig = plt.figure(figsize=(cols / dpi, rows / dpi), dpi=dpi)
+    ax = fig.add_subplot(111)
+    ax.imshow(img, cmap='gray')
+    cover = ax.imshow(layer.astype(np.float_), cmap = 'seismic', vmin =vmin, vmax = vmax, alpha = alpha)
+    cbar = plt.colorbar(cover, fraction = 0.025, pad = 0.08)
+    plt.gca().set_axis_off()
+    plt.title(name, fontdict={'fontsize':36}, pad = 2.2)
+    return None
+
+
 
 
 
 if __name__ == '__main__':
-    # temp = rd.Grid_data()
-    # temp.LoadData(ty = 'resize')
-    # wspeed_cds = np.sqrt(temp.u_cds*temp.u_cds+temp.v_cds*temp.v_cds)
-    # wspeed_s2 = np.sqrt(temp.u_s2*temp.u_s2+temp.v_s2*temp.v_s2)
-    #
-    # tt = np.zeros(15, dtype=np.int8)
-    # ss = np.zeros_like(tt)
-    # ss[:] = 18
-    # for r in range(15):
-    #     for c in range(19):
-    #         if wspeed_s2[42, r, c]>0:
-    #             tt[r] = max(tt[r], c)
-    #             ss[r] = min(ss[r], c)
-    # print(ss)
-    # print(tt)
-    #
-    # dx, dy = Bydistance(wspeed_cds[36:, :, :], wspeed_s2[36:, :, :], ss, tt)
-    # mm = max(dx.keys())
-    # klist, blist = [], []
-    # for m in range(mm+1):
-    #     if m in dx:
-    #         x, y, k, b = LR(dx[m], dy[m])
-    #         klist.append(k)
-    #         blist.append(b)
-    # #         plt.figure(m)
-    # #         plt.plot(range(20), range(20))
-    # #         plt.plot(dx[m], dy[m], '.')
-    # #         plt.plot(x, y, '--')
-    # #         plt.xlim(0, 20)
-    # #         plt.ylim(0, 20)
-    # #         ax = plt.gca()
-    # #         ax.text(7, 3, '(k, b):(%.5f, %.5f)'%(k, b))
-    # #         ax.set_aspect(1)
-    # #         ax.set_xlabel('CDS')
-    # #         ax.set_ylabel('S1_Level2')
-    # # plt.show()
+    s1 = datetime(2017,1,11)
+    s2 = datetime(2019,5,25)
+    datelist = [s1]
+    nows = s1
+    while nows != s2:
+        nows = nows + timedelta(days=12)
+        datelist.append(nows)
+    dates = [datetime.strftime(s, '%Y%m%d') for s in datelist]
+    Nlist = list(range(36,67))
+    temp = rd.Grid_data()
+    temp.LoadData()
+    wspeed_cds = np.sqrt(temp.u_cds*temp.u_cds+temp.v_cds*temp.v_cds)
+    wspeed_s2 = np.sqrt(temp.u_s2*temp.u_s2+temp.v_s2*temp.v_s2)
+    wd_cds = np.arctan2(-temp.u_cds, -temp.v_cds)*180/np.pi
+    wd_s2 = np.arctan2(-temp.u_s2, -temp.v_s2)*180/np.pi
+    tt = temp.mask[0]
+    mask = temp.mask[1].astype(np.float_)
+    del temp
+    spd = wspeed_s2 - wspeed_cds
+    wdd = wd_s2 - wd_cds
+    del wspeed_cds, wspeed_s2, wd_cds, wd_s2
+    mask[mask == 0] = np.nan
+    nums, rows, cols = spd.shape
+    for n in range(36,nums):
+        spd[n, :, :] = spd[n, :, :] * mask
+        wdd[n, :, :] = wdd[n, :, :] * mask
 
-    # plt.plot(klist, label = 'k')
-    # plt.plot(blist, label = 'b')
-    # plt.legend()
+    start = 36
+    stop = 67
+    # stop = nums
+    while start<=stop:
+        DrawMap('Wind Direction Difference(degree) between Sentinel Product and ECMWF ERA5 Model in '+dates[start], wdd[start,:,:], 0.7, -20, 20)
+        plt.savefig('D:/Academic/MPS/Internship/Data/winds/wind direction difference/'+dates[start]+'.png')
+        plt.close()
+        start += 1
     # plt.show()
 
-    for x in [0, 5, 10, 15, 1]:
-        y = x+5
-        ttt = (x+y+1)/2
-        if x == 1:
-            x = 0
-            y = 100
-            ttt = 5
-        kmap, bmap = Lc.KbMap(x, y)
-        a = np.ones_like(kmap)
-        b = kmap*(a*ttt)+bmap - ttt
-        ccolor = np.zeros([21, 4], dtype = np.float_)
-        ccolor[10,:] = [1,1,1,1]
-        ccolor[:, 3] = 1
-        ccolor[:11, 0] = np.linspace(0, 1, 11)
-        ccolor[:11, 1] = np.linspace(0, 1, 11)
-        ccolor[:10, 2] = 1
-        ccolor[10:, 2] = np.linspace(1, 0, 11)
-        ccolor[10:, 1] = np.linspace(1, 0, 11)
-        ccolor[10:, 0] = 1
-        cmap = ListedColormap(ccolor)
-        cmap.set_over('red')
-        cmap.set_under('blue')
-        bounds = list(np.arange(21)*0.3 - 3)
-        norm = BoundaryNorm(bounds, cmap.N)
-        # plt.figure(0)
-        # plt.imshow(kmap, cmap = 'bwr')
-        # plt.colorbar()
-        # plt.title('k value')
-        # plt.figure(1)
-        # plt.imshow(bmap, cmap = 'bwr')
-        # plt.colorbar()
-        # plt.title('b value')
-        # plt.figure(2)
-        # plt.imshow(b, cmap = 'bwr')
-        # plt.colorbar()
-        # plt.title('estimated wind speed while the true wind speed is 3 m/s')
-        data = np.load('D:/Academic/MPS/Internship/Data/Sentinel/Level1/Layer/Layer40-20180518.npy')
-        a = Lc.imp(data)
-        a1 = a.dB(data)
-        min_d = -30
-        max_d = 0
-        img = (a1 - min_d) * 255 / (max_d - min_d)
-        img[img > 255] = 255
-        img[img < 0] = 0
-        rows, cols = a1.shape
-        dpi = 100
-        fig = plt.figure(figsize=(cols / dpi, rows / dpi), dpi=dpi)
-        ax = fig.add_subplot(111)
-        ax.imshow(img, cmap='gray')
 
-        bb = np.ones_like(img)
-        rows, cols = img.shape
-        for r in range(rows):
-            for c in range(cols):
-                bb[r, c] = b[r//150, c//150]
-        ddd = ax.imshow(bb, cmap=cmap, norm = norm, alpha = 0.7)
-        fig.colorbar(ddd)
-        plt.title('Estimated wind speed from wind speed range (%d, %d) while the true wind speed is %f m/s'%(x,y, ttt))
-    plt.show()
+
+
+    # for x in [0, 5, 10, 15, 1]:
+    # # for x in [1]:
+    #     y = x+5
+    #     if x == 1:
+    #         x = 0
+    #         y = 100
+    #     kmap= Lc.KMap(x, y)
+    #     np.save('D:/Academic/MPS/Internship/Data/kmap-'+str(x)+'-'+str(y)+'.npy', kmap)
+    #     ccolor = np.zeros([21, 4], dtype = np.float_)
+    #     ccolor[10,:] = [1,1,1,1]
+    #     ccolor[:, 3] = 1
+    #     ccolor[:11, 0] = np.linspace(0, 1, 11)
+    #     ccolor[:11, 1] = np.linspace(0, 1, 11)
+    #     ccolor[:10, 2] = 1
+    #     ccolor[10:, 2] = np.linspace(1, 0, 11)
+    #     ccolor[10:, 1] = np.linspace(1, 0, 11)
+    #     ccolor[10:, 0] = 1
+    #     cmap = ListedColormap(ccolor)
+    #     cmap.set_over('red')
+    #     cmap.set_under('blue')
+    #     bounds = list(np.arange(20)*0.1)
+    #     norm = BoundaryNorm(bounds, cmap.N)
+    #
+    #     data = np.load('D:/Academic/MPS/Internship/Data/Sentinel/Level1/Layer/Layer40-20180518.npy')
+    #     a = Lc.imp(data)
+    #     a1 = a.dB(data)
+    #     min_d, max_d = -30, 0
+    #     img = (a1 - min_d) * 255 / (max_d - min_d)
+    #     img[np.isnan(img)] = 255
+    #     img[img > 255] = 255
+    #     img[img < 0] = 0
+    #     del a, a1
+    #     rows, cols = img.shape
+    #     dpi = 100
+    #     fig = plt.figure(figsize=(cols / dpi, rows / dpi), dpi=dpi)
+    #     ax = fig.add_subplot(111)
+    #     ax.imshow(img, cmap='gray')
+    #
+    #     # bb = np.ones_like(img)
+    #     # rows, cols = img.shape
+    #     # for r in range(rows):
+    #     #     for c in range(cols):
+    #     #         bb[r, c] = kmap[r//150, c//150]
+    #     bb = kmap
+    #     ddd = ax.imshow(bb, cmap=cmap, norm = norm, alpha = 0.7)
+    #     fig.colorbar(ddd)
+    #     plt.gca().set_axis_off()
+    #     plt.title('Regression coefficient from wind speed range (%d, %d)'%(x,y))
+    #     plt.show()
+    # plt.show()

@@ -1,7 +1,8 @@
-import math, cv2, os
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import signal
+from numba import jit
 from scipy.interpolate import griddata
 from Internship_RSMAS.Griding import Method2 as md2
 from Internship_RSMAS.Read_SentinelData import SentinelClass as rd
@@ -35,7 +36,7 @@ class imp(object):
         img = data
         img[img<=0] = np.nan
         img = 10*np.log10(img)
-        img[np.isnan(img)] = -200
+        # img[np.isnan(img)] = -200
         return img
 
 
@@ -208,11 +209,106 @@ def CalM(data, tt, method):
     return mmm
 
 
-def KbMap(xmin, xmax):
-    N_list=list(range(38, 72))
-    N_list.remove(39)
-    N_list.remove(58)
-    N_list.remove(69)
+
+def LR2(xx, yy):
+    # b = np.zeros(len(xx))
+    # a = np.zeros([len(b), 2])
+    # a[:, 1] = 0
+    # a[:, 0] = xx
+    # b[:] = yy
+    # a_tem = np.dot(a.T, a)
+    # a_tem = np.linalg.inv(a_tem)
+    # a_tem = np.dot(a_tem, a.T)
+    # result = np.dot(a_tem, b)
+
+    def r_sq(k):
+        r2 = (k*xx-yy)**2/(k*k+1)
+        return np.sum(r2)
+
+    k_min, k_max = (yy/xx).min(), (yy/xx).max()
+    k_best = 0
+    r_min = min(r_sq(k_min), r_sq(k_max))
+    steps = 0
+    while steps<20:
+        k1 = k_min*3/4 + k_max/4
+        k2 = k_min/2 + k_max/2
+        k3 = k_min/4 + k_max*3/4
+        if r_sq(k1)<r_sq(k3):
+            k_max = k2
+        elif r_sq(k1)>r_sq(k3):
+            k_min = k1
+        else:
+            k_max = k3
+            k_min = k2
+        r_tem = r_sq(k2)
+        if r_tem<r_min:
+            k_best = k2
+            r_min = r_tem
+        steps += 1
+    return k_best
+
+
+
+def KMap(xmin, xmax):
+    # N_list=list(range(38, 72))
+    # N_list.remove(39)
+    # N_list.remove(58)
+    # N_list.remove(69)
+    N_list = list(range(36, 67))
+    temp = rd.Grid_data()
+    temp.LoadData()
+    wspeed_cds = np.sqrt(temp.u_cds*temp.u_cds+temp.v_cds*temp.v_cds)
+    wspeed_s2 = np.sqrt(temp.u_s2*temp.u_s2+temp.v_s2*temp.v_s2)
+    tt = temp.mask[0]
+    ss = np.zeros_like(tt)
+    nums, rows, cols = wspeed_cds.shape
+    del temp
+    for r in range(rows):
+        e = np.where(wspeed_s2[42, r, :] > 3)[0]
+        if len(e)>0:
+            ss[r] = e[0]
+    kmap = np.zeros([rows, cols], dtype = np.float_)
+    kmap[:, :]= np.nan
+    for r in range(rows):
+        Clist = list(range(ss[r], tt[r]+1))
+        dat3 = wspeed_cds[N_list, r, :]
+        dat4 = wspeed_s2[N_list, r, :]
+        dd = dat3
+        dat3[dd < xmin], dat4[dd > xmax] = np.nan, np.nan
+        d1, d2 = dat3, dat4
+        dat3[np.isnan(d2)], dat4[np.isnan(d1)] = np.nan, np.nan
+        for c in Clist:
+            dat1, dat2 = dat3[:, c], dat4[:, c]
+            dat1 = dat1[np.logical_not(np.isnan(dat1))]
+            dat2 = dat2[np.logical_not(np.isnan(dat2))]
+            if len(dat1)!=0:
+                kmap[r, c] = LR2(dat1, dat2)
+        print(r)
+        #
+        #
+        #
+        # for c in range(ss[r], tt[r]+1):
+        #     dat1 = wspeed_cds[N_list, r, c]
+        #     dat2 = wspeed_s2[N_list, r, c]
+        #     dd = dat1
+        #     dat1[dd<xmin], dat2[dd>xmin] = np.nan, np.nan
+        #     ind1, ind2 = set(np.where(np.logical_not(np.isnan(dat1)))[0]), set(np.where(np.logical_not(np.isnan(dat2)))[0])
+        #     ind = list(ind1.intersection(ind2))
+        #     dat1, dat2 = dat1[ind], dat2[ind]
+        #     print(r, c, len(dat1))
+        #     if len(dat1)!=0:
+        #         # x, y, k, b = tt1.LR(dat1, dat2)
+        #         k = LR2(dat1, dat2)
+        #         kmap[r, c] = k
+    return kmap
+
+
+def bMap(xmin, xmax):
+    # N_list=list(range(38, 72))
+    # N_list.remove(39)
+    # N_list.remove(58)
+    # N_list.remove(69)
+    N_list = list(range(36, 67))
     temp = rd.Grid_data()
     temp.LoadData(ty = 'resize')
     wspeed_cds = np.sqrt(temp.u_cds*temp.u_cds+temp.v_cds*temp.v_cds)
@@ -226,9 +322,8 @@ def KbMap(xmin, xmax):
                 tt[r] = max(tt[r], c)
                 ss[r] = min(ss[r], c)
     nums, rows, cols = wspeed_s2.shape
-    kmap = np.zeros([rows, cols], dtype = np.float_)
-    bmap = np.zeros_like(kmap)
-    kmap[:, :], bmap[:, :] = np.nan, np.nan
+    bmap = np.zeros([rows, cols], dtype = np.float_)
+    bmap[:, :]= np.nan
     for r in range(rows):
         for c in range(ss[r], tt[r]+1):
             dat1, dat2= [], []
@@ -238,12 +333,10 @@ def KbMap(xmin, xmax):
                     dat2.append(wspeed_s2[n, r, c])
             print(r, c, len(dat1))
             if len(dat1)!=0:
-                x, y, k, b = tt1.LR(dat1, dat2)
-                kmap[r, c] = k
+                # x, y, k, b = tt1.LR(dat1, dat2)
+                b = tt1.LRb(np.array(dat1) , np.array(dat2))
                 bmap[r, c] = b
-    return kmap, bmap
-
-
+    return bmap
 
 
 def InterpolationWinds(r, c, u, v):
@@ -283,10 +376,11 @@ def Extract_NRCS(R, C, data = 0):
         temp = rd.Grid_data()
         temp.LoadData(ty='resize')
         data = temp.NRCS
-    N_list=list(range(38, 72))
-    N_list.remove(39)
-    N_list.remove(58)
-    N_list.remove(69)
+    # N_list=list(range(38, 72))
+    # N_list.remove(39)
+    # N_list.remove(58)
+    # N_list.remove(69)
+    N_list = list(range(36, 67))
     s_list = np.zeros(len(N_list))
     r_range = [R*150, min((R+1)*150-1, 2101)]
     c_range = [C*150, min((C+1)*150-1, 2820)]
